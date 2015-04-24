@@ -6,41 +6,42 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Transactions;
+using System.Xml;
 
 namespace TinySql
 {
     public static class Data
     {
 
-        public static DataTable All<T>(string TableName = null, int? Top = null, bool Distinct = false, string ConnectionString = null)
+        public static DataTable All<T>(string TableName = null, int? Top = null, bool Distinct = false, string ConnectionString = null, int TimeoutSeconds = 30)
         {
             SqlBuilder builder = TypeBuilder.Select<T>(TableName, new string[] { "*" }, null, Top, Distinct);
-            return builder.DataTable(ConnectionString, null);
+            return builder.DataTable(ConnectionString,TimeoutSeconds,null);
         }
 
-        public static List<T> All<T>(string TableName = null, int? Top = null, bool Distinct = false, string ConnectionString = null, bool AllowPrivateProperties = false, bool EnforceTypesafety = true)
+        public static List<T> All<T>(string TableName = null, int? Top = null, bool Distinct = false, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true)
         {
-            return List<T>(null, All<T>(TableName, Top, Distinct, ConnectionString), AllowPrivateProperties, EnforceTypesafety);
+            return List<T>(null, All<T>(TableName, Top, Distinct, ConnectionString,TimeoutSeconds), AllowPrivateProperties, EnforceTypesafety);
         }
 
-        public static Dictionary<TKey, T> All<TKey, T>(string TKeyPropertyName, string TableName = null, int? Top = null, bool Distinct = false, string ConnectionString = null, bool AllowPrivateProperties = false, bool EnforceTypesafety = true)
+        public static Dictionary<TKey, T> All<TKey, T>(string TKeyPropertyName, string TableName = null, int? Top = null, bool Distinct = false, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true)
         {
-            return Dictionary<TKey, T>(null, TKeyPropertyName, All<T>(TableName, Top, Distinct, ConnectionString), AllowPrivateProperties, EnforceTypesafety);
+            return Dictionary<TKey, T>(null, TKeyPropertyName, All<T>(TableName, Top, Distinct, ConnectionString,TimeoutSeconds), AllowPrivateProperties, EnforceTypesafety);
         }
 
-        public static Dictionary<TKey, T> Dictionary<TKey, T>(string TKeyPropertyName, string TableName = null, string[] Properties = null, string[] ExcludeProperties = null, int? Top = null, bool Distinct = false, string ConnectionString = null, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
-        {
-            SqlBuilder builder = TypeBuilder.Select<T>(TableName, Properties, ExcludeProperties, Top, Distinct);
-            return builder.Dictionary<TKey, T>(TKeyPropertyName, ConnectionString, AllowPrivateProperties, EnforceTypesafety, Format);
-        }
-
-        public static List<T> List<T>(string TableName = null, string[] Properties = null, string[] ExcludeProperties = null, int? Top = null, bool Distinct = false, string ConnectionString = null, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
+        public static Dictionary<TKey, T> Dictionary<TKey, T>(string TKeyPropertyName, string TableName = null, string[] Properties = null, string[] ExcludeProperties = null, int? Top = null, bool Distinct = false, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
         {
             SqlBuilder builder = TypeBuilder.Select<T>(TableName, Properties, ExcludeProperties, Top, Distinct);
-            return builder.List<T>(ConnectionString, AllowPrivateProperties, EnforceTypesafety, Format);
+            return builder.Dictionary<TKey, T>(TKeyPropertyName, ConnectionString,TimeoutSeconds ,AllowPrivateProperties, EnforceTypesafety, Format);
         }
 
-        public static DataTable DataTable(this SqlBuilder Builder, string ConnectionString = null, params object[] Format)
+        public static List<T> List<T>(string TableName = null, string[] Properties = null, string[] ExcludeProperties = null, int? Top = null, bool Distinct = false, string ConnectionString = null,int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
+        {
+            SqlBuilder builder = TypeBuilder.Select<T>(TableName, Properties, ExcludeProperties, Top, Distinct);
+            return builder.List<T>(ConnectionString,TimeoutSeconds, AllowPrivateProperties, EnforceTypesafety, Format);
+        }
+
+        public static DataTable DataTable(this SqlBuilder Builder, string ConnectionString = null,int TimeoutSeconds = 30, params object[] Format)
         {
             ConnectionString = ConnectionString ?? Builder.ConnectionString ?? SqlBuilder.DefaultConnection;
             if (ConnectionString == null)
@@ -60,6 +61,7 @@ namespace TinySql
                     {
                         context.Open();
                         SqlCommand cmd = new SqlCommand(Builder.ToSql(Format), context);
+                        cmd.CommandTimeout = TimeoutSeconds;
                         SqlDataAdapter adapter = new SqlDataAdapter(cmd);
                         adapter.Fill(dt);
                         context.Close();
@@ -110,9 +112,9 @@ namespace TinySql
             return ds;
         }
 
-        public static ResultTable Execute(this SqlBuilder Builder, string ConnectionString = null, params object[] Format)
+        public static ResultTable Execute(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, params object[] Format)
         {
-            return new ResultTable(DataTable(Builder, ConnectionString, Format));
+            return new ResultTable(DataTable(Builder, ConnectionString,TimeoutSeconds, Format));
         }
 
         public static Dictionary<TKey, T> Dictionary<TKey, T>(this SqlBuilder Builder, string TKeyPropertyName, DataTable dataTable, bool AllowPrivateProperties, bool EnforceTypesafety)
@@ -135,10 +137,10 @@ namespace TinySql
             return dict;
         }
 
-        public static Dictionary<TKey, T> Dictionary<TKey, T>(this SqlBuilder Builder, string TKeyPropertyName, string ConnectionString = null, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
+        public static Dictionary<TKey, T> Dictionary<TKey, T>(this SqlBuilder Builder, string TKeyPropertyName, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
         {
             Dictionary<TKey, T> dict = new Dictionary<TKey, T>();
-            DataTable dt = DataTable(Builder, ConnectionString, Format);
+            DataTable dt = DataTable(Builder, ConnectionString, TimeoutSeconds, Format);
             return Dictionary<TKey, T>(Builder, TKeyPropertyName, dt, AllowPrivateProperties, EnforceTypesafety);
         }
 
@@ -152,9 +154,9 @@ namespace TinySql
             return list;
         }
 
-        public static List<T> List<T>(this SqlBuilder Builder, string ConnectionString = null, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
+        public static List<T> List<T>(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
         {
-            DataTable dt = DataTable(Builder, ConnectionString, Format);
+            DataTable dt = DataTable(Builder, ConnectionString, TimeoutSeconds, Format);
             return List<T>(Builder, dt, AllowPrivateProperties, EnforceTypesafety);
         }
 
@@ -173,42 +175,77 @@ namespace TinySql
                 if (prop == null)
                 {
                     field = instance.GetType().GetField(col.ColumnName, BindingFlags.Instance | flag);
-                    if (field == null || (EnforceTypesafety && field.FieldType != col.DataType))
+                    if (field != null)
                     {
-                        continue;
-                    }
-                    if (row.IsNull(col))
-                    {
-                        if (!field.FieldType.IsValueType || Nullable.GetUnderlyingType(field.FieldType) != null)
+                        if (field.FieldType == typeof(XmlDocument) && !row.IsNull(col))
                         {
-                            field.SetValue(instance, null);
+                            if (col.DataType == typeof(string))
+                            {
+                                XmlDocument xml = new XmlDocument();
+                                xml.LoadXml((string)row[col]);
+                                field.SetValue(instance, xml);
+                            }
+                            else if (col.DataType == typeof(XmlDocument))
+                            {
+                                field.SetValue(instance, (XmlDocument)row[col]);
+                            }
+                        }
+                        else if (!EnforceTypesafety || field.FieldType == col.DataType)
+                        {
+                            if (row.IsNull(col))
+                            {
+                                if (!field.FieldType.IsValueType || Nullable.GetUnderlyingType(field.FieldType) != null)
+                                {
+                                    field.SetValue(instance, null);
+                                }
+                            }
+                            else
+                            {
+                                field.SetValue(instance, row[col.ColumnName]);
+                            }
                         }
                     }
                     else
                     {
-                        field.SetValue(instance, row[col.ColumnName]);
+                        continue;
                     }
+                   
                 }
                 else
                 {
-                    if (!prop.CanWrite || (EnforceTypesafety && prop.PropertyType != col.DataType))
+                    if (prop.CanWrite)
                     {
-                        continue;
+                        if (prop.PropertyType== typeof(XmlDocument) && !row.IsNull(col))
+                        {
+                            if (col.DataType == typeof(string))
+                            {
+                                XmlDocument xml = new XmlDocument();
+                                xml.LoadXml((string)row[col]);
+                                prop.SetValue(instance, xml,null);
+                            }
+                            else if (col.DataType == typeof(XmlDocument))
+                            {
+                                prop.SetValue(instance, (XmlDocument)row[col],null);
+                            }
+                        }
+                        else if (!EnforceTypesafety || prop.PropertyType == col.DataType)
+                        {
+                            if (row.IsNull(col))
+                            {
+                                if (!prop.PropertyType.IsValueType || Nullable.GetUnderlyingType(prop.PropertyType) != null)
+                                {
+                                    prop.SetValue(instance, null, null);
+                                }
+                            }
+                            else
+                            {
+                                prop.SetValue(instance, row[col.ColumnName], null);
+                            }
+                        }
                     }
                     else
                     {
-                        if (row.IsNull(col))
-                        {
-                            if (!prop.PropertyType.IsValueType || Nullable.GetUnderlyingType(prop.PropertyType) != null)
-                            {
-                                prop.SetValue(instance, null, null);
-                            }
-                        }
-                        else
-                        {
-                            prop.SetValue(instance, row[col.ColumnName], null);
-                        }
-
+                        continue;
                     }
                 }
             }

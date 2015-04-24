@@ -29,7 +29,7 @@ namespace TinySql
         }
         public static void ToSql()
         {
-            SqlBuilder.DefaultConnection = "Server=192.168.1.3;Database=INGAMHTEST;User id=sa;Password=St0ckH0lm;";
+            SqlBuilder.DefaultConnection = "Server=192.168.1.3;Database=INGAMHTEST;Integrated Security=SSPI;";
 
             SqlBuilder builder = SqlBuilder.Select(15000).From("Personer").AllColumns()
                 .ConcatColumns("Fulde navn", " ", "Fornavne", "Efternavne")
@@ -61,7 +61,7 @@ namespace TinySql
             }
             string sql = builder.ToSql("alin");
             DateTime dtStart = DateTime.Now;
-            ResultTable result = builder.Execute("Server=192.168.1.3;Database=INGAMHTEST;User id=sa;Password=St0ckH0lm;", "adam");
+            ResultTable result = builder.Execute("Server=192.168.1.3;Database=INGAMHTEST;Integrated Security=SSPI;",30, "adam");
             Console.WriteLine("Execute: {0} for {1} rows", (DateTime.Now - dtStart).TotalMilliseconds, result.Count);
             //foreach (dynamic row in result)
             //{
@@ -79,14 +79,14 @@ namespace TinySql
 
             SqlBuilder builder2 = SqlBuilder.CacheSqlBuilder("TESTSQL2");
             dtStart = DateTime.Now;
-            result = builder2.Execute("Server=192.168.1.3;Database=INGAMHTEST;User id=sa;Password=St0ckH0lm;", "adam");
+            result = builder2.Execute("Server=192.168.1.3;Database=INGAMHTEST;Integrated Security=SSPI;", 30,"adam");
             Console.WriteLine("Execute pass 2: {0} for {1} rows", (DateTime.Now - dtStart).TotalMilliseconds, result.Count);
             //foreach (dynamic row in result)
             //{
             //    Console.WriteLine("Person {0}: {1}. Telefon {2}. Email {3}", row.PersonID, row.Fulde_navn, row.Telefonnummer, row.Email);
             //}
             dtStart = DateTime.Now;
-            List<Person> personList = builder2.List<Person>("Server=192.168.1.3;Database=INGAMHTEST;User id=sa;Password=St0ckH0lm;", false, true, "adam");
+            List<Person> personList = builder2.List<Person>("Server=192.168.1.3;Database=INGAMHTEST;Integrated Security=SSPI;", 30, false, true, "adam");
             Console.WriteLine("ExecuteList: {0} for {1} rows", (DateTime.Now - dtStart).TotalMilliseconds, personList.Count);
             // Console.WriteLine("PERSON OBJECT LIST");
             //foreach (Person person in personList.Take(10))
@@ -95,7 +95,7 @@ namespace TinySql
             //}
 
             dtStart = DateTime.Now;
-            Dictionary<int, Person> personDictionary = builder2.Dictionary<int, Person>("PersonID", "Server=192.168.1.3;Database=INGAMHTEST;User id=sa;Password=St0ckH0lm;", false, true, "adam");
+            Dictionary<int, Person> personDictionary = builder2.Dictionary<int, Person>("PersonID", "Server=192.168.1.3;Database=INGAMHTEST;Integrated Security=SSPI;", 30, false, true, "adam");
             Console.WriteLine("ExecuteDictionary: {0} for {1} rows", (DateTime.Now - dtStart).TotalMilliseconds, personDictionary.Count);
             // Console.WriteLine("PERSON OBJECT DICTIONARY");
             //foreach (KeyValuePair<int,Person> kvp in personDictionary)
@@ -103,7 +103,7 @@ namespace TinySql
             //    Console.WriteLine("Person {0}: {1} {2}. Telefon {3}. Email {4}", kvp.Key, kvp.Value.Fornavne, kvp.Value.Efternavne, kvp.Value.Telefonnummer, kvp.Value.Email);
             //}
             dtStart = DateTime.Now;
-            DataTable dt = builder2.DataTable("Server=192.168.1.3;Database=INGAMHTEST;User id=sa;Password=St0ckH0lm;", "adam");
+            DataTable dt = builder2.DataTable("Server=192.168.1.3;Database=INGAMHTEST;Integrated Security=SSPI;", 30,"adam");
             Console.WriteLine("ExecuteDataTable: {0} for {1} rows", (DateTime.Now - dtStart).TotalMilliseconds, personDictionary.Count);
 
             dtStart = DateTime.Now;
@@ -178,7 +178,7 @@ namespace TinySql
             // Exclude fields
             //
             dtStart = DateTime.Now;
-            personList = Data.List<Person>("Personer", null, new string[] { "TelefonID", "Telefonnummer", "Email" }, 150000, false, "Server=192.168.1.3;Database=INGAMHTEST;User id=sa;Password=St0ckH0lm;", false, true, "adam");
+            personList = Data.List<Person>("Personer", null, new string[] { "TelefonID", "Telefonnummer", "Email" }, 150000, false, "Server=192.168.1.3;Database=INGAMHTEST;Integrated Security=SSPI;", 30, false, true, "adam");
             Console.WriteLine("ExecuteList from Object: {0} for {1} rows", (DateTime.Now - dtStart).TotalMilliseconds, personList.Count);
             foreach (Person person in personList.Take(10))
             {
@@ -195,7 +195,7 @@ namespace TinySql
                 .From("Personer").LeftOuterJoin("Kontaktinfo", "Email").On("PersonID", SqlOperators.Equal, "PersonID").And<int>("KontaktInfoTypeID", SqlOperators.Equal, 2)
                     .ToTable().Column("Tekst", "Email");
 
-            personList = builder.List<Person>("Server=192.168.1.3;Database=INGAMHTEST;User id=sa;Password=St0ckH0lm;", false, true, "adam");
+            personList = builder.List<Person>("Server=192.168.1.3;Database=INGAMHTEST;Integrated Security=SSPI;", 30, false, true, "adam");
             Console.WriteLine("ExecuteList from Object with Joins: {0} for {1} rows", (DateTime.Now - dtStart).TotalMilliseconds, personList.Count);
             foreach (Person person in personList.Take(10))
             {
@@ -203,7 +203,7 @@ namespace TinySql
             }
 
             //dtStart = DateTime.Now;
-            //Dictionary<int, DLogic.Personer> p = Data.All<int, DLogic.Personer>("PersonID", null, 20000, false, "Server=192.168.1.3;Database=INGAMHTEST;User id=sa;Password=St0ckH0lm;");
+            //Dictionary<int, DLogic.Personer> p = Data.All<int, DLogic.Personer>("PersonID", null, 20000, false, "Server=192.168.1.3;Database=INGAMHTEST;Integrated Security=SSPI;");
             //Console.WriteLine("AllRows: {0} for {1} rows", (DateTime.Now - dtStart).TotalMilliseconds, dt.Rows.Count);
 
             dtStart = DateTime.Now;
@@ -930,11 +930,12 @@ namespace TinySql
         {
 
         }
-        public Table(SqlBuilder parent, string name, string alias)
+        public Table(SqlBuilder parent, string name, string alias, string schema = null)
         {
             Builder = parent;
             Name = name;
             Alias = alias;
+            Schema = schema;
         }
         public virtual SqlBuilder Builder
         {
@@ -946,12 +947,15 @@ namespace TinySql
             get;
             set;
         }
+
+        public string Schema { get; set; }
+
         private string _Alias;
         public string Alias
         {
             get
             {
-                return _Alias ?? Name;
+                return _Alias ?? (!string.IsNullOrEmpty(Schema) ? "[" + Schema + "]." : "") + Name;
             }
 
             set { _Alias = value; }
@@ -962,7 +966,7 @@ namespace TinySql
         {
             get
             {
-                return "[" + Name + "]" + (!string.IsNullOrEmpty(_Alias) ? " [" + Alias + "]" : "");
+                return (!string.IsNullOrEmpty(Schema) ? "[" + Schema + "]." : "")  + "[" + Name + "]" + (!string.IsNullOrEmpty(_Alias) ? " [" + Alias + "]" : "");
             }
         }
         public virtual string ToSql()
@@ -1077,6 +1081,7 @@ namespace TinySql
             {
                 return ToSql();
             }
+            
             return string.Format(ToSql(), Format);
         }
 

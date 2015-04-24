@@ -81,14 +81,14 @@ namespace TinySql
         {
             return sql.Builder.From(TableName, Alias);
         }
-        public static Table From(this SqlBuilder sql, string TableName, string Alias = null)
+        public static Table From(this SqlBuilder sql, string TableName, string Alias = null, string Schema = null)
         {
             Table table = sql.Tables.FirstOrDefault(x => x.Name.Equals((Alias ?? TableName), StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(TableName, StringComparison.InvariantCultureIgnoreCase)));
             if (table != null)
             {
                 return table;
             }
-            table = new Table(sql, TableName, string.IsNullOrEmpty(Alias) ? "t" + sql.Tables.Count.ToString() : Alias);
+            table = new Table(sql, TableName, string.IsNullOrEmpty(Alias) ? "t" + sql.Tables.Count.ToString() : Alias,Schema);
             sql.Tables.Add(table);
             return table;
         }
@@ -161,27 +161,27 @@ namespace TinySql
 
         #region JOIN conditions
 
-        public static Join InnerJoin(this Table sql, string TableName, string Alias = null)
+        public static Join InnerJoin(this Table sql, string TableName, string Alias = null, string Schema = null)
         {
-            return MakeJoin(Join.JoinTypes.Inner, sql, TableName, Alias);
+            return MakeJoin(Join.JoinTypes.Inner, sql, TableName, Alias, Schema);
         }
-        public static Join InnerJoin(this JoinConditionGroup group, string TableName)
+        public static Join InnerJoin(this JoinConditionGroup group, string TableName, string Alias = null, string Schema = null)
         {
-            return group.Join.FromTable.InnerJoin(TableName);
+            return group.Join.FromTable.InnerJoin(TableName, Alias, Schema);
         }
-        public static Join LeftOuterJoin(this Table sql, string TableName, string Alias = null)
+        public static Join LeftOuterJoin(this Table sql, string TableName, string Alias = null, string Schema = null)
         {
-            return MakeJoin(Join.JoinTypes.LeftOuter, sql, TableName, Alias);
+            return MakeJoin(Join.JoinTypes.LeftOuter, sql, TableName, Alias, Schema);
         }
-        public static Join LeftOuterJoin(this JoinConditionGroup group, string TableName, string Alias = null)
+        public static Join LeftOuterJoin(this JoinConditionGroup group, string TableName, string Alias = null, string Schema = null)
         {
-            return group.Join.FromTable.LeftOuterJoin(TableName);
+            return group.Join.FromTable.LeftOuterJoin(TableName,Alias,Schema);
         }
-        public static Join RightOuterJoin(this Table sql, string TableName)
+        public static Join RightOuterJoin(this Table sql, string TableName, string Alias = null, string Schema = null)
         {
-            return MakeJoin(Join.JoinTypes.RightOuter, sql, TableName);
+            return MakeJoin(Join.JoinTypes.RightOuter, sql, TableName, Alias, Schema);
         }
-        public static Join RightOuterJoin(this JoinConditionGroup group, string TableName)
+        public static Join RightOuterJoin(this JoinConditionGroup group, string TableName, string Alias = null, string Schema = null)
         {
             return group.Join.FromTable.RightOuterJoin(TableName);
         }
@@ -189,17 +189,17 @@ namespace TinySql
         {
             return MakeJoin(Join.JoinTypes.Cross, sql, TableName);
         }
-        public static Join CrossJoin(this JoinConditionGroup group, string TableName)
+        public static Join CrossJoin(this JoinConditionGroup group, string TableName, string Alias = null, string Schema = null)
         {
             return group.Join.FromTable.CrossJoin(TableName);
         }
 
-        private static Join MakeJoin(Join.JoinTypes JoinType, Table FromTable, string ToTable, string Alias = null)
+        private static Join MakeJoin(Join.JoinTypes JoinType, Table FromTable, string ToTable, string Alias = null, string Schema = null)
         {
             Table right = FromTable.Builder.Tables.FirstOrDefault(x => x.Name.Equals((Alias ?? ToTable), StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(Alias, StringComparison.InvariantCultureIgnoreCase)));
             if (right == null)
             {
-                right = FromTable.Builder.From(ToTable, Alias);
+                right = FromTable.Builder.From(ToTable, Alias, Schema);
             }
 
             Join join = new Join()
