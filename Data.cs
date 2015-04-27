@@ -117,6 +117,28 @@ namespace TinySql
             return new ResultTable(DataTable(Builder, ConnectionString, TimeoutSeconds, Format));
         }
 
+
+        public static S Dictionary<TKey, T, S>(this SqlBuilder Builder, string TKeyPropertyName, DataTable dataTable, bool AllowPrivateProperties, bool EnforceTypesafety) where S : IDictionary<TKey,T>
+        {
+            IDictionary<TKey, T> dict = Activator.CreateInstance<S>() as IDictionary<TKey, T>;
+            foreach (DataRow row in dataTable.Rows)
+            {
+                T instance = PopulateObject<T>(dataTable, row, AllowPrivateProperties, EnforceTypesafety);
+                PropertyInfo prop = instance.GetType().GetProperty(TKeyPropertyName);
+                if (prop != null)
+                {
+                    dict.Add((TKey)prop.GetValue(instance, null), instance);
+                }
+                else
+                {
+                    FieldInfo field = instance.GetType().GetField(TKeyPropertyName);
+                    dict.Add((TKey)field.GetValue(instance), instance);
+                }
+            }
+            return (S)dict;
+        }
+
+
         public static Dictionary<TKey, T> Dictionary<TKey, T>(this SqlBuilder Builder, string TKeyPropertyName, DataTable dataTable, bool AllowPrivateProperties, bool EnforceTypesafety)
         {
             Dictionary<TKey, T> dict = new Dictionary<TKey, T>();
@@ -139,9 +161,16 @@ namespace TinySql
 
         public static Dictionary<TKey, T> Dictionary<TKey, T>(this SqlBuilder Builder, string TKeyPropertyName, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
         {
-            Dictionary<TKey, T> dict = new Dictionary<TKey, T>();
+            // Dictionary<TKey, T> dict = new Dictionary<TKey, T>();
             DataTable dt = DataTable(Builder, ConnectionString, TimeoutSeconds, Format);
-            return Dictionary<TKey, T>(Builder, TKeyPropertyName, dt, AllowPrivateProperties, EnforceTypesafety);
+            return (Dictionary<TKey,T>)Dictionary<TKey, T,Dictionary<TKey,T>>(Builder, TKeyPropertyName, dt, AllowPrivateProperties, EnforceTypesafety);
+        }
+
+        public static S Dictionary<TKey, T, S>(this SqlBuilder Builder, string TKeyPropertyName, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format) where S : IDictionary<TKey, T>
+        {
+            IDictionary<TKey, T> dict = Activator.CreateInstance<S>() as IDictionary<TKey, T>;
+            DataTable dt = DataTable(Builder, ConnectionString, TimeoutSeconds, Format);
+            return (S)Dictionary<TKey, T, S>(Builder, TKeyPropertyName, dt, AllowPrivateProperties, EnforceTypesafety);
         }
 
         public static List<T> List<T>(this SqlBuilder Builder, DataTable dataTable, bool AllowPrivateProperties, bool EnforceTypesafety)

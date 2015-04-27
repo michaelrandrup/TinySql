@@ -53,6 +53,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Data.cs" />
+    <Compile Include="SqlBuilder.cs" />
     <Compile Include="SqlStatementExtensions.cs" />
     <Compile Include="Classes.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

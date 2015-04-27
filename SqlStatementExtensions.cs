@@ -40,21 +40,62 @@ namespace TinySql
             return table;
         }
 
-        public static UpdateTable OutputColumn(this UpdateTable table, string Field, string Alias = null)
+        public static TableParameterField Output(this UpdateTable table, string ParameterName = "output")
         {
-            if (table.Output == null)
+            table.Output = new TableParameterField()
             {
-                table.Output = new Table(table.Builder, "inserted", null, null);
-            }
-            table.Output.Column(Field, Alias);
+                ParameterName = "@" + ParameterName,
+                ParameterTable = new Table(table.Builder, "inserted", ""),
+                Builder = table.Builder
+            };
+            return table.Output;
+        }
+
+        public static TableParameterField Column(this TableParameterField table, string FieldName, SqlDbType DataType, int MaxLength = -1, int Scale = -1)
+        {
+
+            table.ParameterTable.FieldList.Add(new Field()
+            {
+                Builder = table.Builder,
+                Name = FieldName,
+                MaxLength = MaxLength,
+                Scale = Scale,
+                SqlDataType = DataType,
+                Table = table.ParameterTable
+            });
             return table;
         }
+
+        public static UpdateTable UpdateTable(this TableParameterField table)
+        {
+            return table.Builder.Tables[0] as UpdateTable;
+        }
+
+
 
         #endregion
 
         #region Insert Statement
 
-        public static InsertIntoTable Into(this SqlBuilder builder, string TableName)
+        public static TableParameterField Output(this InsertIntoTable table, string ParameterName = "output")
+        {
+            table.Output = new TableParameterField()
+            {
+                ParameterName = "@" + ParameterName,
+                ParameterTable = new Table(table.Builder, "inserted", ""),
+                Builder = table.Builder
+            };
+            return table.Output;
+        }
+
+        public static InsertIntoTable InsertTable(this TableParameterField table)
+        {
+            return table.Builder.Tables[0] as InsertIntoTable;
+        }
+
+
+
+        public static InsertIntoTable Into(this SqlBuilder builder, string TableName, string Schema = null)
         {
             if (builder.Tables.Count > 0 && builder.Tables[0] is InsertIntoTable)
             {
@@ -63,6 +104,7 @@ namespace TinySql
             else
             {
                 InsertIntoTable t = new InsertIntoTable(builder, TableName);
+                t.Schema = Schema;
                 builder.Tables.Add(t);
                 return t;
             }
@@ -83,15 +125,7 @@ namespace TinySql
             return table;
         }
 
-        public static InsertIntoTable ColumnOutput(this InsertIntoTable table, string Field, string Alias = null)
-        {
-            if (table.Output == null)
-            {
-                table.Output = new Table(table.Builder, "inserted", null, null);
-            }
-            table.Output.Column(Field, Alias);
-            return table;
-        }
+        
 
         #endregion
 
@@ -108,7 +142,7 @@ namespace TinySql
             {
                 return table;
             }
-            table = new Table(sql, TableName, string.IsNullOrEmpty(Alias) ? "t" + sql.Tables.Count.ToString() : Alias,Schema);
+            table = new Table(sql, TableName, string.IsNullOrEmpty(Alias) ? "t" + sql.Tables.Count.ToString() : Alias, Schema);
             sql.Tables.Add(table);
             return table;
         }
@@ -195,7 +229,7 @@ namespace TinySql
         }
         public static Join LeftOuterJoin(this JoinConditionGroup group, string TableName, string Alias = null, string Schema = null)
         {
-            return group.Join.FromTable.LeftOuterJoin(TableName,Alias,Schema);
+            return group.Join.FromTable.LeftOuterJoin(TableName, Alias, Schema);
         }
         public static Join RightOuterJoin(this Table sql, string TableName, string Alias = null, string Schema = null)
         {
