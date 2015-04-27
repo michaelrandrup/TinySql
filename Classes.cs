@@ -592,17 +592,32 @@ namespace TinySql
 
 
 
-
+    public class TableParameterField : ParameterField
+    {
+        private new System.Data.SqlDbType SqlDataType;
+        private new int MaxLength = -1;
+        private new int Scale = -1;
+        private new bool IsOutput = false;
+        public List<Field> Columns = new List<Field>();
+        public override string DeclareParameter()
+        {
+            string sql = string.Format("DECLARE {0} TABLE(", ParameterName);
+            foreach (Field Column in Columns)
+            {
+                ValueField f;
+                
+                
+            }
+        }
+    }
     
 
     public abstract class ParameterField : ValueField
     {
         public string ParameterName;
-        public System.Data.SqlDbType SqlDataType;
-        public int MaxLength = -1;
-        public int Scale = -1;
+        public bool IsOutput = false;
 
-        public string DeclareParameter()
+        public virtual string DeclareParameter()
         {
             string sql = string.Format("DECLARE {0} {1}", ParameterName, SqlDataType);
             if (MaxLength != -1)
@@ -622,6 +637,10 @@ namespace TinySql
                         sql += "(" + ((byte[])Value).Length + ")";
                     }
                 }
+            }
+            if (IsOutput)
+            {
+                sql += " OUT";
             }
             return sql;
         }
@@ -823,11 +842,24 @@ namespace TinySql
         public Table Table { get; set; }
         public SqlBuilder Builder { get; set; }
 
+        public System.Data.SqlDbType SqlDataType;
+        public int MaxLength = -1;
+        public int Scale = -1;
+
         public virtual string ReferenceName
         {
             get
             {
-                return "[" + this.Table.Alias + "].[" + (this.Alias ?? this.Name) + "]";
+                string table = this.Table.Alias;
+                if (table.StartsWith("["))
+                {
+                    return table + ".[" + (this.Alias ?? this.Name) + "]";
+                }
+                else
+                {
+                    return "[" + table + "].[" + (this.Alias ?? this.Name) + "]";
+                }
+                
             }
         }
 
@@ -843,8 +875,8 @@ namespace TinySql
         {
             Key.Parent = this;
         }
-        public UpdateTable(SqlBuilder parent, string name)
-            : base(parent, name, null)
+        public UpdateTable(SqlBuilder parent, string name, string Schema = null)
+            : base(parent, name,null,Schema)
         {
             Key.Builder = parent;
             Key.Parent = this;
@@ -877,6 +909,7 @@ namespace TinySql
         }
 
         public PrimaryKey Key = new PrimaryKey();
+        public Table Output;
     }
 
 
@@ -922,6 +955,8 @@ namespace TinySql
             return sql;
         }
 
+        public Table Output;
+
     }
 
     public class Table
@@ -942,13 +977,21 @@ namespace TinySql
             get;
             set;
         }
+        private string _Name = null;
         public string Name
         {
-            get;
-            set;
+            get
+            {
+                // return (Schema != null ? "[" + Schema + "]." : "") + _Name;
+                return _Name;
+            }
+            set
+            {
+                _Name = value;
+            }
         }
 
-        public string Schema { get; set; }
+        public string Schema = null;
 
         private string _Alias;
         public string Alias
@@ -966,7 +1009,8 @@ namespace TinySql
         {
             get
             {
-                return (!string.IsNullOrEmpty(Schema) ? "[" + Schema + "]." : "")  + "[" + Name + "]" + (!string.IsNullOrEmpty(_Alias) ? " [" + Alias + "]" : "");
+                return (Schema != null ? "[" + Schema + "]." : "") + Name + (!string.IsNullOrEmpty(_Alias) ? " [" + Alias + "]" : "");
+                // return Name + (!string.IsNullOrEmpty(_Alias) ? " [" + Alias + "]" : "");
             }
         }
         public virtual string ToSql()
@@ -1135,7 +1179,11 @@ namespace TinySql
 
             sb.AppendLine(declare);
             sb.AppendLine(set);
-            sb.AppendFormat("INSERT  INTO {0}({1})\r\n", BaseTable.Alias, BaseTable.ToSql());
+            sb.AppendFormat(" INSERT  INTO {0}({1})\r\n", BaseTable.Alias, BaseTable.ToSql());
+            if (BaseTable.Output != null)
+            {
+                sb.AppendFormat("OUTPUT  {0}\r\n", BaseTable.Output.ToSql());
+            }
             sb.AppendFormat("VALUES({0})", BaseTable.FieldParameters());
             return sb.ToString();
 
@@ -1180,6 +1228,10 @@ namespace TinySql
 
             sb.AppendFormat("UPDATE  {0}\r\n", BaseTable.Name);
             sb.AppendFormat("   SET  {0}\r\n", BaseTable.ToSql());
+            if (BaseTable.Output != null)
+            {
+                sb.AppendFormat("OUTPUT  {0}\r\n", BaseTable.Output.ToSql());
+            }
             sb.AppendFormat("  FROM  {0}\r\n", BaseTable.ReferenceName);
             foreach (Join j in JoinConditions)
             {

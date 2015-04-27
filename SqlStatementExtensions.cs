@@ -11,7 +11,7 @@ namespace TinySql
 
         #region Update statement
 
-        public static UpdateTable Table(this SqlBuilder builder, string TableName)
+        public static UpdateTable Table(this SqlBuilder builder, string TableName, string Schema = null)
         {
             if (builder.Tables.Count > 0 && builder.Tables[0] is UpdateTable)
             {
@@ -19,7 +19,7 @@ namespace TinySql
             }
             else
             {
-                UpdateTable t = new UpdateTable(builder, TableName);
+                UpdateTable t = new UpdateTable(builder, TableName, Schema);
                 builder.Tables.Add(t);
                 return t;
             }
@@ -37,6 +37,16 @@ namespace TinySql
                 SqlDataType = DataType,
                 FieldValue = Value
             });
+            return table;
+        }
+
+        public static UpdateTable OutputColumn(this UpdateTable table, string Field, string Alias = null)
+        {
+            if (table.Output == null)
+            {
+                table.Output = new Table(table.Builder, "inserted", null, null);
+            }
+            table.Output.Column(Field, Alias);
             return table;
         }
 
@@ -70,6 +80,16 @@ namespace TinySql
                 SqlDataType = DataType,
                 FieldValue = Value
             });
+            return table;
+        }
+
+        public static InsertIntoTable ColumnOutput(this InsertIntoTable table, string Field, string Alias = null)
+        {
+            if (table.Output == null)
+            {
+                table.Output = new Table(table.Builder, "inserted", null, null);
+            }
+            table.Output.Column(Field, Alias);
             return table;
         }
 
