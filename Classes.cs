@@ -580,6 +580,8 @@ namespace TinySql
             return this;
         }
 
+
+
         internal static BuiltinFn Fn(SqlBuilder builder, Table table)
         {
             BuiltinFn fn = new BuiltinFn();

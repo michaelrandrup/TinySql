@@ -8,6 +8,13 @@ namespace TinySql
 {
     public static class SqlStatementExtensions
     {
+        #region Support functions
+        public static Table FindTable(this SqlBuilder builder, string TableNameOrAlias, string Schema = null)
+        {
+            return builder.Tables.FirstOrDefault(x => x.Name.Equals(TableNameOrAlias, StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(TableNameOrAlias, StringComparison.InvariantCultureIgnoreCase)));
+        }
+        #endregion
+
 
         #region Update statement
 
@@ -152,7 +159,8 @@ namespace TinySql
         }
         public static Table From(this SqlBuilder sql, string TableName, string Alias = null, string Schema = null)
         {
-            Table table = sql.Tables.FirstOrDefault(x => x.Name.Equals((Alias ?? TableName), StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(TableName, StringComparison.InvariantCultureIgnoreCase)));
+            // Table table = sql.Tables.FirstOrDefault(x => x.Name.Equals((Alias ?? TableName), StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(TableName, StringComparison.InvariantCultureIgnoreCase)));
+            Table table = sql.FindTable(Alias ?? TableName);
             if (table != null)
             {
                 return table;
