@@ -44,6 +44,7 @@ namespace TinySql
         {
             table.Output = new TableParameterField()
             {
+                Name = ParameterName,
                 ParameterName = "@" + ParameterName,
                 ParameterTable = new Table(table.Builder, "inserted", ""),
                 Builder = table.Builder
@@ -82,6 +83,7 @@ namespace TinySql
             table.Output = new TableParameterField()
             {
                 ParameterName = "@" + ParameterName,
+                Name = ParameterName,
                 ParameterTable = new Table(table.Builder, "inserted", ""),
                 Builder = table.Builder
             };

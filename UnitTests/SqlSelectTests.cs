@@ -50,9 +50,9 @@ namespace UnitTests
                 .Fn()
                     .GetDate("Today")
                     .Concat("My Name",
-                        ConstantFunction<string>.Constant("Michael"),
-                        ConstantFunction<string>.Constant(" "),
-                        ConstantFunction<string>.Constant("Randrup")
+                        ConstantField<string>.Constant("Michael"),
+                        ConstantField<string>.Constant(" "),
+                        ConstantField<string>.Constant("Randrup")
                         )
                 .ToTable()
                 .Column<string>(Guid.NewGuid().ToString(), "UniqueID")

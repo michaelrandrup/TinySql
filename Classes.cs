@@ -548,6 +548,23 @@ namespace TinySql
             return this;
         }
 
+        public enum AggregateTypes : int
+        {
+            Sum = 1,
+            Max = 2,
+            Min = 3
+        }
+        public BuiltinFn Aggregate(AggregateTypes AggregateType, string ColumnOrAlias, string Alias = null)
+        {
+
+            return this;
+        
+
+
+
+        }
+
+
         public BuiltinFn Concat(string Alias = null, params FieldBase[] Values)
         {
             FunctionField fn = new FunctionField()
@@ -577,15 +594,15 @@ namespace TinySql
 
 
 
-    public class ConstantFunction<T> : FunctionField
+    public class ConstantField<T> : FunctionField
     {
-        public static ConstantFunction<T> Constant(T Value)
+        public static ConstantField<T> Constant(T Value)
         {
-            ConstantFunction<T> c = new ConstantFunction<T>();
+            ConstantField<T> c = new ConstantField<T>();
             c.Value = Value;
             return c;
         }
-        public ConstantFunction()
+        public ConstantField()
         {
             this.Name = null;
             this.Schema = null;

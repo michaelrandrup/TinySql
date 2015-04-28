@@ -17,7 +17,7 @@ namespace UnitTests
             Assert.IsTrue(InsertOnePersonInternal() == 1);
         }
         
-        public int InsertOnePersonInternal()
+        public int InsertOnePersonInternal(bool WriteSql = true)
         {
             Guid g = StopWatch.Start();
 
@@ -26,7 +26,10 @@ namespace UnitTests
                 .Output()
                     .Column("BusinessEntityID", System.Data.SqlDbType.Int)
                 .Builder;
-            Console.WriteLine(b1.ToSql());
+            if (WriteSql)
+            {
+                Console.WriteLine(b1.ToSql());
+            }
             ResultTable result = b1.Execute();
             dynamic row = result.First();
             int businessid = row.BusinessEntityID;
@@ -71,7 +74,7 @@ namespace UnitTests
             Guid g = StopWatch.Start();
             for (int i = 0; i < 1000; i++)
             {
-                num += InsertOnePersonInternal();
+                num += InsertOnePersonInternal(i < 10);
             }
             Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Seconds, "One person inserted in {0}s"));
             Assert.IsTrue(num == 1000);

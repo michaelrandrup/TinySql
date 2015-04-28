@@ -31,6 +31,7 @@ namespace TinySql.Metadata
             db.Refresh();
         }
 
+        #endregion
 
 
         public static SqlMetadataDatabase FromBuilder(SqlBuilder Builder)
@@ -56,35 +57,47 @@ namespace TinySql.Metadata
             {
                 ID = g,
                 Name = db.Name,
-                Server = server.Name + (!string.IsNullOrEmpty(server.InstanceName) && server.Name.IndexOf('\\') == -1 ? "" : "")
+                Server = server.Name + (!string.IsNullOrEmpty(server.InstanceName) && server.Name.IndexOf('\\') == -1 ? "" : ""),
+                Builder = builder
             };
-
             foreach (Microsoft.SqlServer.Management.Smo.Table table in db.Tables)
             {
-                if (!mdb.Tables.Any(x => x.ID.Equals(table.ID)))
-                {
-                    BuildMetadata(mdb, table,PrimaryKeyIndexOnly);
-                }
+                table.Refresh();
+                BuildMetadata(mdb, table);
             }
-
+            //Parallel.ForEach(db.Tables.OfType<Microsoft.SqlServer.Management.Smo.Table>(),
+            //    new ParallelOptions { MaxDegreeOfParallelism = 2 },
+            //    table => BuildMetadata(mdb, table));
+            builder.Metadata = mdb;
             return mdb;
 
         }
 
         private MetadataTable BuildMetadata(MetadataDatabase mdb, Microsoft.SqlServer.Management.Smo.Table table, bool PrimaryKeyIndexOnly = true)
         {
-            MetadataTable mt = new MetadataTable()
+            MetadataTable mt = null;
+            table.Refresh();
+            if (mdb.Tables.TryGetValue(table.Name, out mt))
+            {
+                return mt;
+            }
+
+            mt = new MetadataTable()
             {
                 ID = table.ID,
                 Schema = table.Schema,
-                Name = table.Name
+                Name = table.Name,
+                Parent = mdb
             };
+          
 
             foreach (Microsoft.SqlServer.Management.Smo.Column column in table.Columns)
             {
                 MetadataColumn col = new MetadataColumn()
                 {
                     ID = column.ID,
+                    Parent = mt,
+                    Database = mdb,
                     Name = column.Name,
                     Collation = column.Collation,
                     Default = column.Default,
@@ -99,7 +112,10 @@ namespace TinySql.Metadata
                     IsRowGuid = column.RowGuidCol
                 };
                 BuildColumnDataType(col, column);
-                mt.Columns.Add(col);
+                col = mt.Columns.AddOrUpdate(col.Name, col, (key, existing) =>
+                {
+                    return col;
+                });
 
             }
 
@@ -110,15 +126,17 @@ namespace TinySql.Metadata
                     Key key = new Key()
                     {
                         ID = idx.ID,
+                        Parent = mt,
+                        Database = mdb,
                         Name = idx.Name,
                         IsUnique = idx.IsUnique,
                         IsPrimaryKey = idx.IndexKeyType == IndexKeyType.DriPrimaryKey
                     };
                     foreach (IndexedColumn c in idx.IndexedColumns)
                     {
-                        key.Columns.Add(mt.Columns.First(x => x.ID == c.ID));
+                        key.Columns.Add(mt[c.Name]);
                     }
-                    mt.Indexes.Add(key);
+                    mt.Indexes.AddOrUpdate(key.Name, key, (k, v) => { return key; });
                 }
             }
 
@@ -127,51 +145,58 @@ namespace TinySql.Metadata
                 MetadataForeignKey mfk = new MetadataForeignKey()
                 {
                     ID = FK.ID,
+                    Parent = mt,
+                    Database = mdb,
                     Name = FK.Name,
                     ReferencedKey = FK.ReferencedKey,
                     ReferencedSchema = FK.ReferencedTableSchema,
                     ReferencedTable = FK.ReferencedTable
                 };
-                MetadataTable mtref = mdb.Tables.FirstOrDefault(x => x.Name.Equals(mfk.ReferencedTable) && x.Schema.Equals(mfk.ReferencedSchema));
-                if (mtref == null)
+                MetadataTable mtref = null;
+                if (!mdb.Tables.TryGetValue(mfk.ReferencedSchema + "." + mfk.ReferencedTable, out mtref))
                 {
                     mtref = BuildMetadata(mdb, mfk.ReferencedTable, mfk.ReferencedSchema);
                 }
-
                 foreach (ForeignKeyColumn cc in FK.Columns)
                 {
                     mfk.ColumnReferences.Add(new MetadataColumnReference()
                     {
-                        Column = mt.Columns.First(x => x.Name.Equals(cc.Name)),
-                        ReferencedColumn = mtref.Columns.First(x => x.Name.Equals(cc.ReferencedColumn))
+                        Parent = mfk,
+                        Database = mdb,
+                        Name = cc.Name,
+                        Column = mt[cc.Name],
+                        ReferencedColumn = mtref[cc.ReferencedColumn]
                     });
                 }
-                mt.ForeignKeys.Add(mfk);
+                mt.ForeignKeys.AddOrUpdate(mfk.Name, mfk, (key, existing) =>
+                {
+                    return mfk;
+                });
             }
 
-            mdb.Tables.Add(mt);
+            mdb.Tables.AddOrUpdate(mt.Schema + "." + mt.Name, mt, (key, existing) =>
+            {
+                return mt;
+            });
             return mt;
+            Console.WriteLine("Built table {0}", mt.Name);
         }
 
         public MetadataTable BuildMetadata(MetadataDatabase mdb, string TableName, string Schema = "dbo", bool PrimaryKeyIndexOnly = true)
         {
+            MetadataTable mt = null;
+            if (mdb.Tables.TryGetValue(TableName, out mt))
+            {
+                return mt;
+            }
             Microsoft.SqlServer.Management.Smo.Table t = new Microsoft.SqlServer.Management.Smo.Table(db, TableName, Schema);
             t.Refresh();
             return BuildMetadata(mdb, t);
         }
 
 
-        #endregion
-
-        public void SqlTable(string Name)
-        {
-            Microsoft.SqlServer.Management.Smo.Table t = new Microsoft.SqlServer.Management.Smo.Table(db, Name);
-            foreach (Microsoft.SqlServer.Management.Smo.Column column in t.Columns)
-            {
 
 
-            }
-        }
 
         private void BuildColumnDataType(MetadataColumn column, Column col)
         {

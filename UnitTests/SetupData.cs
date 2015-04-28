@@ -58,6 +58,10 @@ namespace UnitTests
     }
     public static class SetupData
     {
+        /// <summary>
+        /// Requires the Adventure Works Sample Database for SQL 2014: https://msftdbprodsamples.codeplex.com/releases/view/125550
+        /// </summary>
+        /// <returns></returns>
         public static bool Setup()
         {
             if (SqlBuilder.DefaultConnection != null)

@@ -18,13 +18,13 @@ namespace UnitTests
             SqlMetadataDatabase meta = SqlMetadataDatabase.FromConnection(SqlBuilder.DefaultConnection);
             MetadataDatabase mdb = meta.BuildMetadata();
             Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Seconds, "Metadata generated in {0}s"));
-            Console.WriteLine("Database contains {0} tables and a total of {1} columns", mdb.Tables.Count, mdb.Tables.SelectMany(x => x.Columns).Count());
-            string FileName = System.IO.Path.Combine(System.IO.Path.GetTempPath(), System.IO.Path.GetRandomFileName() + ".xml");
+            Console.WriteLine("Database contains {0} tables and a total of {1} columns", mdb.Tables.Count, mdb.Tables.Values.SelectMany(x => x.Columns).Count());
+            string FileName = System.IO.Path.Combine(System.IO.Path.GetTempPath(), System.IO.Path.GetRandomFileName() + ".json");
             g = StopWatch.Start();
-            mdb.ToFile(FileName);
+            Serialization.ToFile(FileName, mdb);
             Console.WriteLine("Metadata persisted as {0} in {1}ms",FileName, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
             g = StopWatch.Start();
-            mdb = MetadataDatabase.FromFile(FileName);
+            mdb = Serialization.FromFile(FileName);
             Console.WriteLine("Metadata read from file '{0}' in {1}ms", FileName, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
         }
 

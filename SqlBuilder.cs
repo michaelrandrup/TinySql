@@ -12,6 +12,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Transactions;
 using System.Xml;
+using TinySql.Metadata;
 
 namespace TinySql
 {
@@ -61,6 +62,10 @@ namespace TinySql
         public string ConnectionString { get; set; }
 
         public object[] Format;
+
+        public MetadataDatabase Metadata { get; set; }
+
+
 
 
 
@@ -179,7 +184,7 @@ namespace TinySql
             {
                 sb.AppendFormat("OUTPUT  {0}\r\n", BaseTable.Output.ToSql());
             }
-            sb.AppendFormat("VALUES({0})", BaseTable.FieldParameters());
+            sb.AppendFormat("VALUES({0})\r\n", BaseTable.FieldParameters());
             if (!string.IsNullOrEmpty(outputSelect))
             {
                 sb.AppendLine(outputSelect);
