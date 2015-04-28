@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TinySql", "TinySql.csproj",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnitTests", "UnitTests\UnitTests.csproj", "{AC24BF4C-56DE-46EE-88C6-63F16D742A1B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TinySql.Metadata.Sql", "TinySql.SMO\TinySql.SMO\TinySql.Metadata.Sql.csproj", "{720A1B64-B0A5-4E1A-8E4C-CF8454B832FC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{AC24BF4C-56DE-46EE-88C6-63F16D742A1B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AC24BF4C-56DE-46EE-88C6-63F16D742A1B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AC24BF4C-56DE-46EE-88C6-63F16D742A1B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{720A1B64-B0A5-4E1A-8E4C-CF8454B832FC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{720A1B64-B0A5-4E1A-8E4C-CF8454B832FC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{720A1B64-B0A5-4E1A-8E4C-CF8454B832FC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{720A1B64-B0A5-4E1A-8E4C-CF8454B832FC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

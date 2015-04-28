@@ -60,11 +60,16 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SqlUpdateTests.cs" />
     <Compile Include="SqlInsertTests.cs" />
+    <Compile Include="MetadataTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TinySql.csproj">
       <Project>{32a38e7e-87af-47ef-b2e4-3675c55e39b6}</Project>
       <Name>TinySql</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\TinySql.SMO\TinySql.SMO\TinySql.Metadata.Sql.csproj">
+      <Project>{720a1b64-b0a5-4e1a-8e4c-cf8454b832fc}</Project>
+      <Name>TinySql.Metadata.Sql</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

@@ -12,33 +12,11 @@ namespace TinySql
 {
     public static class Data
     {
-
-        public static DataTable All<T>(string TableName = null, int? Top = null, bool Distinct = false, string ConnectionString = null, int TimeoutSeconds = 30)
+        #region Execute methods
+        
+        public static ResultTable Execute(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, params object[] Format)
         {
-            SqlBuilder builder = TypeBuilder.Select<T>(TableName, new string[] { "*" }, null, Top, Distinct);
-            return builder.DataTable(ConnectionString, TimeoutSeconds, null);
-        }
-
-        public static List<T> All<T>(string TableName = null, int? Top = null, bool Distinct = false, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true)
-        {
-            return List<T>(null, All<T>(TableName, Top, Distinct, ConnectionString, TimeoutSeconds), AllowPrivateProperties, EnforceTypesafety);
-        }
-
-        public static Dictionary<TKey, T> All<TKey, T>(string TKeyPropertyName, string TableName = null, int? Top = null, bool Distinct = false, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true)
-        {
-            return Dictionary<TKey, T>(null, TKeyPropertyName, All<T>(TableName, Top, Distinct, ConnectionString, TimeoutSeconds), AllowPrivateProperties, EnforceTypesafety);
-        }
-
-        public static Dictionary<TKey, T> Dictionary<TKey, T>(string TKeyPropertyName, string TableName = null, string[] Properties = null, string[] ExcludeProperties = null, int? Top = null, bool Distinct = false, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
-        {
-            SqlBuilder builder = TypeBuilder.Select<T>(TableName, Properties, ExcludeProperties, Top, Distinct);
-            return builder.Dictionary<TKey, T>(TKeyPropertyName, ConnectionString, TimeoutSeconds, AllowPrivateProperties, EnforceTypesafety, Format);
-        }
-
-        public static List<T> List<T>(string TableName = null, string[] Properties = null, string[] ExcludeProperties = null, int? Top = null, bool Distinct = false, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
-        {
-            SqlBuilder builder = TypeBuilder.Select<T>(TableName, Properties, ExcludeProperties, Top, Distinct);
-            return builder.List<T>(ConnectionString, TimeoutSeconds, AllowPrivateProperties, EnforceTypesafety, Format);
+            return new ResultTable(DataTable(Builder, ConnectionString, TimeoutSeconds, Format));
         }
 
         public static DataTable DataTable(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, params object[] Format)
@@ -112,211 +90,6 @@ namespace TinySql
             return ds;
         }
 
-        public static ResultTable Execute(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, params object[] Format)
-        {
-            return new ResultTable(DataTable(Builder, ConnectionString, TimeoutSeconds, Format));
-        }
-
-
-        public static S Dictionary<TKey, T, S>(this SqlBuilder Builder, string TKeyPropertyName, DataTable dataTable, bool AllowPrivateProperties, bool EnforceTypesafety) where S : IDictionary<TKey,T>
-        {
-            IDictionary<TKey, T> dict = Activator.CreateInstance<S>() as IDictionary<TKey, T>;
-            foreach (DataRow row in dataTable.Rows)
-            {
-                T instance = PopulateObject<T>(dataTable, row, AllowPrivateProperties, EnforceTypesafety);
-                PropertyInfo prop = instance.GetType().GetProperty(TKeyPropertyName);
-                if (prop != null)
-                {
-                    dict.Add((TKey)prop.GetValue(instance, null), instance);
-                }
-                else
-                {
-                    FieldInfo field = instance.GetType().GetField(TKeyPropertyName);
-                    dict.Add((TKey)field.GetValue(instance), instance);
-                }
-            }
-            return (S)dict;
-        }
-
-
-        public static Dictionary<TKey, T> Dictionary<TKey, T>(this SqlBuilder Builder, string TKeyPropertyName, DataTable dataTable, bool AllowPrivateProperties, bool EnforceTypesafety)
-        {
-            Dictionary<TKey, T> dict = new Dictionary<TKey, T>();
-            foreach (DataRow row in dataTable.Rows)
-            {
-                T instance = PopulateObject<T>(dataTable, row, AllowPrivateProperties, EnforceTypesafety);
-                PropertyInfo prop = instance.GetType().GetProperty(TKeyPropertyName);
-                if (prop != null)
-                {
-                    dict.Add((TKey)prop.GetValue(instance, null), instance);
-                }
-                else
-                {
-                    FieldInfo field = instance.GetType().GetField(TKeyPropertyName);
-                    dict.Add((TKey)field.GetValue(instance), instance);
-                }
-            }
-            return dict;
-        }
-
-        public static Dictionary<TKey, T> Dictionary<TKey, T>(this SqlBuilder Builder, string TKeyPropertyName, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
-        {
-            // Dictionary<TKey, T> dict = new Dictionary<TKey, T>();
-            DataTable dt = DataTable(Builder, ConnectionString, TimeoutSeconds, Format);
-            return (Dictionary<TKey,T>)Dictionary<TKey, T,Dictionary<TKey,T>>(Builder, TKeyPropertyName, dt, AllowPrivateProperties, EnforceTypesafety);
-        }
-
-        public static S Dictionary<TKey, T, S>(this SqlBuilder Builder, string TKeyPropertyName, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format) where S : IDictionary<TKey, T>
-        {
-            IDictionary<TKey, T> dict = Activator.CreateInstance<S>() as IDictionary<TKey, T>;
-            DataTable dt = DataTable(Builder, ConnectionString, TimeoutSeconds, Format);
-            return (S)Dictionary<TKey, T, S>(Builder, TKeyPropertyName, dt, AllowPrivateProperties, EnforceTypesafety);
-        }
-
-        public static List<T> List<T>(this SqlBuilder Builder, DataTable dataTable, bool AllowPrivateProperties, bool EnforceTypesafety)
-        {
-            List<T> list = new List<T>();
-            foreach (DataRow row in dataTable.Rows)
-            {
-                list.Add(PopulateObject<T>(dataTable, row, AllowPrivateProperties, EnforceTypesafety));
-            }
-            return list;
-        }
-
-        public static List<T> List<T>(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
-        {
-            DataTable dt = DataTable(Builder, ConnectionString, TimeoutSeconds, Format);
-            return List<T>(Builder, dt, AllowPrivateProperties, EnforceTypesafety);
-        }
-
-        public static T PopulateObject<T>(T instance, DataTable dt, DataRow row, bool AllowPrivateProperties, bool EnforceTypesafety)
-        {
-            foreach (DataColumn col in dt.Columns)
-            {
-                BindingFlags flag = BindingFlags.Public;
-                if (AllowPrivateProperties)
-                {
-                    flag = flag | BindingFlags.NonPublic;
-                }
-                PropertyInfo prop = instance.GetType().GetProperty(col.ColumnName, BindingFlags.Instance | flag);
-                FieldInfo field = null;
-                if (prop == null)
-                {
-                    field = instance.GetType().GetField(col.ColumnName, BindingFlags.Instance | flag);
-                    if (field != null)
-                    {
-                        if (field.FieldType == typeof(XmlDocument) && !row.IsNull(col))
-                        {
-                            if (col.DataType == typeof(string))
-                            {
-                                XmlDocument xml = new XmlDocument();
-                                xml.LoadXml((string)row[col]);
-                                field.SetValue(instance, xml);
-                            }
-                            else if (col.DataType == typeof(XmlDocument))
-                            {
-                                field.SetValue(instance, (XmlDocument)row[col]);
-                            }
-                        }
-                        else if (!EnforceTypesafety || field.FieldType == col.DataType)
-                        {
-                            if (row.IsNull(col))
-                            {
-                                if (!field.FieldType.IsValueType || Nullable.GetUnderlyingType(field.FieldType) != null)
-                                {
-                                    field.SetValue(instance, null);
-                                }
-                            }
-                            else
-                            {
-                                field.SetValue(instance, row[col.ColumnName]);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        continue;
-                    }
-
-                }
-                else
-                {
-                    if (prop.CanWrite)
-                    {
-                        if (prop.PropertyType == typeof(XmlDocument) && !row.IsNull(col))
-                        {
-                            if (col.DataType == typeof(string))
-                            {
-                                XmlDocument xml = new XmlDocument();
-                                xml.LoadXml((string)row[col]);
-                                prop.SetValue(instance, xml, null);
-                            }
-                            else if (col.DataType == typeof(XmlDocument))
-                            {
-                                prop.SetValue(instance, (XmlDocument)row[col], null);
-                            }
-                        }
-                        else if (!EnforceTypesafety || prop.PropertyType == col.DataType)
-                        {
-                            if (row.IsNull(col))
-                            {
-                                if (!prop.PropertyType.IsValueType || Nullable.GetUnderlyingType(prop.PropertyType) != null)
-                                {
-                                    prop.SetValue(instance, null, null);
-                                }
-                            }
-                            else
-                            {
-                                prop.SetValue(instance, row[col.ColumnName], null);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        continue;
-                    }
-                }
-            }
-            return instance;
-        }
-        private static T PopulateObject<T>(DataTable dt, DataRow row, bool AllowPrivateProperties, bool EnforceTypesafety, bool UseDefaultConstructor = true)
-        {
-            T instance = default(T);
-            if (UseDefaultConstructor)
-            {
-                instance = Activator.CreateInstance<T>();
-                return PopulateObject<T>(instance, dt, row, AllowPrivateProperties, EnforceTypesafety);
-            }
-            else
-            {
-                object o = Activator.CreateInstance(typeof(T), new object[] { row });
-                if (o == null)
-                {
-                    o = Activator.CreateInstance(typeof(T), new object[] { dt, row });
-                }
-                if (o == null)
-                {
-                    o = Activator.CreateInstance(typeof(T), new object[] { row, dt });
-                }
-                if (o == null)
-                {
-                    o = Activator.CreateInstance(typeof(T), new object[] { dt });
-                }
-                if ( o != null)
-                {
-                    return (T)o;
-                }
-                else
-                {
-                    throw new InvalidOperationException(string.Format("The type {0} does not provide a valid constructor for a DataRow and/or DataTable object", typeof(T).FullName));
-                }
-
-            }
-
-
-
-        }
-
         private static int ExecuteNonQueryInternal(SqlBuilder Builder, string ConnectionString, int Timeout = 30)
         {
             using (SqlConnection context = new SqlConnection(ConnectionString))
@@ -376,5 +149,117 @@ namespace TinySql
             }
             return RowsAffected;
         }
+
+        #endregion
+
+        #region List<T> Methods
+
+        public static List<T> All<T>(string TableName = null, int? Top = null, bool Distinct = false, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true)
+        {
+            return List<T>(null, All<T>(TableName, Top, Distinct, ConnectionString, TimeoutSeconds), AllowPrivateProperties, EnforceTypesafety);
+        }
+
+        public static List<T> List<T>(string TableName = null, string[] Properties = null, string[] ExcludeProperties = null, int? Top = null, bool Distinct = false, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
+        {
+            SqlBuilder builder = TypeBuilder.Select<T>(TableName, Properties, ExcludeProperties, Top, Distinct);
+            return builder.List<T>(ConnectionString, TimeoutSeconds, AllowPrivateProperties, EnforceTypesafety, Format);
+        }
+
+        public static List<T> List<T>(this SqlBuilder Builder, DataTable dataTable, bool AllowPrivateProperties, bool EnforceTypesafety)
+        {
+            List<T> list = new List<T>();
+            foreach (DataRow row in dataTable.Rows)
+            {
+                list.Add(TypeBuilder.PopulateObject<T>(dataTable, row, AllowPrivateProperties, EnforceTypesafety));
+            }
+            return list;
+        }
+
+        public static List<T> List<T>(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
+        {
+            DataTable dt = DataTable(Builder, ConnectionString, TimeoutSeconds, Format);
+            return List<T>(Builder, dt, AllowPrivateProperties, EnforceTypesafety);
+        }
+
+        #endregion
+
+        #region Dictionary<TKey, TValue> Methods
+
+        public static Dictionary<TKey, T> All<TKey, T>(string TKeyPropertyName, string TableName = null, int? Top = null, bool Distinct = false, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true)
+        {
+            return Dictionary<TKey, T>(null, TKeyPropertyName, All<T>(TableName, Top, Distinct, ConnectionString, TimeoutSeconds), AllowPrivateProperties, EnforceTypesafety);
+        }
+
+        public static Dictionary<TKey, T> Dictionary<TKey, T>(string TKeyPropertyName, string TableName = null, string[] Properties = null, string[] ExcludeProperties = null, int? Top = null, bool Distinct = false, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
+        {
+            SqlBuilder builder = TypeBuilder.Select<T>(TableName, Properties, ExcludeProperties, Top, Distinct);
+            return builder.Dictionary<TKey, T>(TKeyPropertyName, ConnectionString, TimeoutSeconds, AllowPrivateProperties, EnforceTypesafety, Format);
+        }
+
+        public static S Dictionary<TKey, T, S>(this SqlBuilder Builder, string TKeyPropertyName, DataTable dataTable, bool AllowPrivateProperties, bool EnforceTypesafety) where S : IDictionary<TKey, T>
+        {
+            IDictionary<TKey, T> dict = Activator.CreateInstance<S>() as IDictionary<TKey, T>;
+            foreach (DataRow row in dataTable.Rows)
+            {
+                T instance = TypeBuilder.PopulateObject<T>(dataTable, row, AllowPrivateProperties, EnforceTypesafety);
+                PropertyInfo prop = instance.GetType().GetProperty(TKeyPropertyName);
+                if (prop != null)
+                {
+                    dict.Add((TKey)prop.GetValue(instance, null), instance);
+                }
+                else
+                {
+                    FieldInfo field = instance.GetType().GetField(TKeyPropertyName);
+                    dict.Add((TKey)field.GetValue(instance), instance);
+                }
+            }
+            return (S)dict;
+        }
+
+        public static Dictionary<TKey, T> Dictionary<TKey, T>(this SqlBuilder Builder, string TKeyPropertyName, DataTable dataTable, bool AllowPrivateProperties, bool EnforceTypesafety)
+        {
+            Dictionary<TKey, T> dict = new Dictionary<TKey, T>();
+            foreach (DataRow row in dataTable.Rows)
+            {
+                T instance = TypeBuilder.PopulateObject<T>(dataTable, row, AllowPrivateProperties, EnforceTypesafety);
+                PropertyInfo prop = instance.GetType().GetProperty(TKeyPropertyName);
+                if (prop != null)
+                {
+                    dict.Add((TKey)prop.GetValue(instance, null), instance);
+                }
+                else
+                {
+                    FieldInfo field = instance.GetType().GetField(TKeyPropertyName);
+                    dict.Add((TKey)field.GetValue(instance), instance);
+                }
+            }
+            return dict;
+        }
+
+        public static Dictionary<TKey, T> Dictionary<TKey, T>(this SqlBuilder Builder, string TKeyPropertyName, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
+        {
+            // Dictionary<TKey, T> dict = new Dictionary<TKey, T>();
+            DataTable dt = DataTable(Builder, ConnectionString, TimeoutSeconds, Format);
+            return (Dictionary<TKey, T>)Dictionary<TKey, T, Dictionary<TKey, T>>(Builder, TKeyPropertyName, dt, AllowPrivateProperties, EnforceTypesafety);
+        }
+
+        public static S Dictionary<TKey, T, S>(this SqlBuilder Builder, string TKeyPropertyName, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format) where S : IDictionary<TKey, T>
+        {
+            IDictionary<TKey, T> dict = Activator.CreateInstance<S>() as IDictionary<TKey, T>;
+            DataTable dt = DataTable(Builder, ConnectionString, TimeoutSeconds, Format);
+            return (S)Dictionary<TKey, T, S>(Builder, TKeyPropertyName, dt, AllowPrivateProperties, EnforceTypesafety);
+        }
+
+        #endregion
+
+
+        public static DataTable All<T>(string TableName = null, int? Top = null, bool Distinct = false, string ConnectionString = null, int TimeoutSeconds = 30)
+        {
+            SqlBuilder builder = TypeBuilder.Select<T>(TableName, new string[] { "*" }, null, Top, Distinct);
+            return builder.DataTable(ConnectionString, TimeoutSeconds, null);
+        }
+
+        
+
     }
 }

@@ -108,9 +108,6 @@ namespace TinySql
     }
 
 
-
-
-
     public class Join
     {
         private static string JoinClause(JoinTypes JoinType)
@@ -431,6 +428,8 @@ namespace TinySql
 
     }
 
+
+
     public abstract class ValueField : Field
     {
         public new object Value;
@@ -456,30 +455,6 @@ namespace TinySql
         }
 
         
-        //protected string GetSqlDataType()
-        //{
-        //    string sql = SqlDataType.ToString();
-        //    if (MaxLength != -1)
-        //    {
-        //        sql += "(" + (MaxLength == 0 ? "max" : MaxLength.ToString()) + (Scale != -1 ? "," + Scale : "") + ")";
-        //    }
-        //    else
-        //    {
-        //        if (SqlDataType == SqlDbType.NVarChar || SqlDataType == SqlDbType.VarChar || SqlDataType == SqlDbType.Text)
-        //        {
-        //            sql += "(" + Value.ToString().Length + ")";
-        //        }
-        //        else if (SqlDataType == SqlDbType.VarBinary)
-        //        {
-        //            if (Value != null)
-        //            {
-        //                sql += "(" + ((byte[])Value).Length + ")";
-        //            }
-        //        }
-        //    }
-        //    return sql;
-        //}
-
         protected static object GetFieldValue(Type DataType, object FieldValue, CultureInfo Culture = null)
         {
             if (Culture == null)

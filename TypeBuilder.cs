@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
+using System.Reflection;
 using System.Text;
+using System.Xml;
 
 namespace TinySql
 {
@@ -39,5 +42,133 @@ namespace TinySql
             return Select(typeof(T), TableName, Properties, ExcludeProperties, Top, Distinct);
         }
 
+        public static T PopulateObject<T>(T instance, DataTable dt, DataRow row, bool AllowPrivateProperties, bool EnforceTypesafety)
+        {
+            foreach (DataColumn col in dt.Columns)
+            {
+                BindingFlags flag = BindingFlags.Public;
+                if (AllowPrivateProperties)
+                {
+                    flag = flag | BindingFlags.NonPublic;
+                }
+                PropertyInfo prop = instance.GetType().GetProperty(col.ColumnName, BindingFlags.Instance | flag);
+                FieldInfo field = null;
+                if (prop == null)
+                {
+                    field = instance.GetType().GetField(col.ColumnName, BindingFlags.Instance | flag);
+                    if (field != null)
+                    {
+                        if (field.FieldType == typeof(XmlDocument) && !row.IsNull(col))
+                        {
+                            if (col.DataType == typeof(string))
+                            {
+                                XmlDocument xml = new XmlDocument();
+                                xml.LoadXml((string)row[col]);
+                                field.SetValue(instance, xml);
+                            }
+                            else if (col.DataType == typeof(XmlDocument))
+                            {
+                                field.SetValue(instance, (XmlDocument)row[col]);
+                            }
+                        }
+                        else if (!EnforceTypesafety || field.FieldType == col.DataType)
+                        {
+                            if (row.IsNull(col))
+                            {
+                                if (!field.FieldType.IsValueType || Nullable.GetUnderlyingType(field.FieldType) != null)
+                                {
+                                    field.SetValue(instance, null);
+                                }
+                            }
+                            else
+                            {
+                                field.SetValue(instance, row[col.ColumnName]);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        continue;
+                    }
+
+                }
+                else
+                {
+                    if (prop.CanWrite)
+                    {
+                        if (prop.PropertyType == typeof(XmlDocument) && !row.IsNull(col))
+                        {
+                            if (col.DataType == typeof(string))
+                            {
+                                XmlDocument xml = new XmlDocument();
+                                xml.LoadXml((string)row[col]);
+                                prop.SetValue(instance, xml, null);
+                            }
+                            else if (col.DataType == typeof(XmlDocument))
+                            {
+                                prop.SetValue(instance, (XmlDocument)row[col], null);
+                            }
+                        }
+                        else if (!EnforceTypesafety || prop.PropertyType == col.DataType)
+                        {
+                            if (row.IsNull(col))
+                            {
+                                if (!prop.PropertyType.IsValueType || Nullable.GetUnderlyingType(prop.PropertyType) != null)
+                                {
+                                    prop.SetValue(instance, null, null);
+                                }
+                            }
+                            else
+                            {
+                                prop.SetValue(instance, row[col.ColumnName], null);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        continue;
+                    }
+                }
+            }
+            return instance;
+        }
+        
+        public static T PopulateObject<T>(DataTable dt, DataRow row, bool AllowPrivateProperties, bool EnforceTypesafety, bool UseDefaultConstructor = true)
+        {
+            T instance = default(T);
+            if (UseDefaultConstructor)
+            {
+                instance = Activator.CreateInstance<T>();
+                return PopulateObject<T>(instance, dt, row, AllowPrivateProperties, EnforceTypesafety);
+            }
+            else
+            {
+                object o = Activator.CreateInstance(typeof(T), new object[] { row });
+                if (o == null)
+                {
+                    o = Activator.CreateInstance(typeof(T), new object[] { dt, row });
+                }
+                if (o == null)
+                {
+                    o = Activator.CreateInstance(typeof(T), new object[] { row, dt });
+                }
+                if (o == null)
+                {
+                    o = Activator.CreateInstance(typeof(T), new object[] { dt });
+                }
+                if (o != null)
+                {
+                    return (T)o;
+                }
+                else
+                {
+                    throw new InvalidOperationException(string.Format("The type {0} does not provide a valid constructor for a DataRow and/or DataTable object", typeof(T).FullName));
+                }
+
+            }
+
+
+
+        }
     }
 }
