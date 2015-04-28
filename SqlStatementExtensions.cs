@@ -125,7 +125,20 @@ namespace TinySql
             return table;
         }
 
-        
+
+
+        #endregion
+
+        #region Functions
+        public static BuiltinFn Fn(this Table table)
+        {
+            return BuiltinFn.Fn(table.Builder, table);
+        }
+        public static Table ToTable(this BuiltinFn fn)
+        {
+            return fn.table;
+        }
+
 
         #endregion
 
@@ -185,7 +198,6 @@ namespace TinySql
         }
 
 
-
         public static Table Columns(this Table sql, params string[] Fields)
         {
             for (int i = 0; i < Fields.Length; i++)
@@ -211,6 +223,20 @@ namespace TinySql
             });
             return sql;
         }
+
+        public static Table Column<T>(this Table table, T Value, string Alias = null)
+        {
+            table.FieldList.Add(new ValueField<T>()
+                {
+                    Alias = Alias,
+                    FieldValue = Value,
+                    Table = table,
+                    Builder = table.Builder
+                });
+            return table;
+        }
+
+
         #endregion
 
         #region JOIN conditions

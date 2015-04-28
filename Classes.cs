@@ -376,7 +376,7 @@ namespace TinySql
             return sql;
         }
     }
-    
+
 
     public abstract class ParameterField : ValueField
     {
@@ -386,24 +386,6 @@ namespace TinySql
         public virtual string DeclareParameter()
         {
             string sql = string.Format("DECLARE {0} {1}", ParameterName, GetSqlDataType());
-            //if (MaxLength != -1)
-            //{
-            //    sql += "(" + (MaxLength == 0 ? "max" : MaxLength.ToString()) + (Scale != -1 ? "," + Scale : "") + ")";
-            //}
-            //else
-            //{
-            //    if (SqlDataType == SqlDbType.NVarChar || SqlDataType == SqlDbType.VarChar || SqlDataType == SqlDbType.Text)
-            //    {
-            //        sql += "(" + Value.ToString().Length + ")";
-            //    }
-            //    else if (SqlDataType == SqlDbType.VarBinary)
-            //    {
-            //        if (Value != null)
-            //        {
-            //            sql += "(" + ((byte[])Value).Length + ")";
-            //        }
-            //    }
-            //}
             if (IsOutput)
             {
                 sql += " OUT";
@@ -432,7 +414,7 @@ namespace TinySql
 
     public abstract class ValueField : Field
     {
-        public new object Value;
+        // public new object Value;
         public Type DataType;
 
         public virtual string Quotable
@@ -442,6 +424,265 @@ namespace TinySql
                 return GetQuotable(Value.GetType());
             }
         }
+
+        public override string ToSql()
+        {
+            string sql = GetFieldValue(DataType == null ? Value.GetType() : DataType, Value).ToString();
+            if (string.IsNullOrEmpty(Alias))
+            {
+                return sql;
+            }
+            else
+            {
+                string q = this.Quotable;
+                sql = string.Format("{0}{1}{0} [{2}]", q, sql, Alias);
+                return q.Length == 1 ? "N" + sql : sql;
+            }
+        }
+
+    }
+
+    public class ParameterField<T> : ParameterField
+    {
+        public ParameterField()
+        {
+            DataType = typeof(T);
+        }
+
+        public T FieldValue
+        {
+            get
+            {
+                return (T)Value;
+            }
+            set
+            {
+                Value = value;
+            }
+        }
+
+
+
+
+    }
+
+    public class ValueField<T> : ValueField
+    {
+
+        public override string Quotable
+        {
+            get
+            {
+                return GetQuotable(this.DataType);
+            }
+        }
+
+        public ValueField()
+        {
+            DataType = typeof(T);
+        }
+
+        public T FieldValue
+        {
+            get
+            {
+                return (T)Value;
+            }
+            set
+            {
+                Value = value;
+            }
+        }
+
+
+
+    }
+
+    public class FunctionField : Field
+    {
+        //protected List<FieldBase> _Parameters = new List<FieldBase>();
+        public List<FieldBase> Parameters = new List<FieldBase>();
+        public string Schema { get; set; }
+        public override string ToSql()
+        {
+            string sql = (!string.IsNullOrEmpty(Schema) ? Schema + "." : "") + Name + "(";
+            if (Parameters.Count > 0)
+            {
+                sql += Parameters.First().ToSql();
+            }
+            foreach (FieldBase field in Parameters.Skip(1))
+            {
+                sql += ", " + field.ToSql();
+            }
+            sql += ")";
+            if (!string.IsNullOrEmpty(Alias))
+            {
+                sql += " [" + Alias + "]";
+            }
+            return sql;
+        }
+
+
+    }
+
+    public class BuiltinFn
+    {
+        private BuiltinFn()
+        {
+
+        }
+        internal SqlBuilder builder;
+        internal Table table;
+
+        public BuiltinFn GetDate(string Alias = null)
+        {
+            table.FieldList.Add(
+            new FunctionField()
+            {
+                Name = "GETDATE",
+                Schema = null,
+                Builder = builder,
+                Table = table,
+                Alias = Alias
+            });
+            return this;
+        }
+
+        public BuiltinFn Concat(string Alias = null, params FieldBase[] Values)
+        {
+            FunctionField fn = new FunctionField()
+            {
+                Name = "CONCAT",
+                Schema = null,
+                Builder = builder,
+                Table = table,
+                Alias = Alias
+            };
+            fn.Parameters.AddRange(Values);
+            table.FieldList.Add(fn);
+            return this;
+        }
+
+        internal static BuiltinFn Fn(SqlBuilder builder, Table table)
+        {
+            BuiltinFn fn = new BuiltinFn();
+            fn.builder = builder;
+            fn.table = table;
+            return fn;
+        }
+
+    }
+
+
+
+
+
+    public class ConstantFunction<T> : FunctionField
+    {
+        public static ConstantFunction<T> Constant(T Value)
+        {
+            ConstantFunction<T> c = new ConstantFunction<T>();
+            c.Value = Value;
+            return c;
+        }
+        public ConstantFunction()
+        {
+            this.Name = null;
+            this.Schema = null;
+        }
+        public new T Value { get; set; }
+        public override string ToSql()
+        {
+            string q = GetQuotable(typeof(T));
+            string sql = string.Format("{0}{1}{0}", q, GetFieldValue(typeof(T), Value));
+            return q.Length == 1 ? "N" + sql : sql;
+        }
+
+    }
+
+    public abstract class FieldBase
+    {
+        public string Name { get; set; }
+        public abstract string ToSql();
+    }
+
+
+    public class Field : FieldBase
+    {
+        public Field()
+        {
+
+        }
+
+        public string Alias
+        {
+            get;
+            set;
+        }
+
+        public object Value
+        {
+            get;
+            set;
+        }
+        public Table Table { get; set; }
+        public SqlBuilder Builder { get; set; }
+
+        public System.Data.SqlDbType SqlDataType;
+        public int MaxLength = -1;
+        public int Scale = -1;
+
+
+
+        public virtual string DeclarationName
+        {
+            get
+            {
+                return this.Name;
+            }
+        }
+        public virtual string ReferenceName
+        {
+            get
+            {
+                string table = this.Table.Alias;
+                if (table.StartsWith("["))
+                {
+                    return table + ".[" + (this.Alias ?? this.Name) + "]";
+                }
+                else
+                {
+                    return "[" + table + "].[" + (this.Alias ?? this.Name) + "]";
+                }
+
+            }
+        }
+
+        public string GetSqlDataType()
+        {
+            string sql = SqlDataType.ToString();
+            if (MaxLength != -1)
+            {
+                sql += "(" + (MaxLength == 0 ? "max" : MaxLength.ToString()) + (Scale != -1 ? "," + Scale : "") + ")";
+            }
+            else
+            {
+                if (SqlDataType == SqlDbType.NVarChar || SqlDataType == SqlDbType.VarChar || SqlDataType == SqlDbType.Text || SqlDataType == SqlDbType.NText)
+                {
+                    sql += "(MAX)";
+                }
+                else if (SqlDataType == SqlDbType.VarBinary)
+                {
+                    if (Value != null)
+                    {
+
+                        sql += "(" + ((byte[])Value).Length.ToString() + ")";
+                    }
+                }
+            }
+            return sql;
+        }
+
         protected static string GetQuotable(Type DataType)
         {
             if (DataType == typeof(XmlDocument) || DataType == typeof(Guid) || DataType == typeof(string) || DataType == typeof(DateTime) || DataType == typeof(DateTimeOffset) || DataType == typeof(Guid?) || DataType == typeof(DateTime?) || DataType == typeof(DateTimeOffset?))
@@ -454,7 +695,7 @@ namespace TinySql
             }
         }
 
-        
+
         protected static object GetFieldValue(Type DataType, object FieldValue, CultureInfo Culture = null)
         {
             if (Culture == null)
@@ -523,150 +764,9 @@ namespace TinySql
             return FieldValue == null ? "" : FieldValue.ToString().Replace("'", "''");
         }
 
+
+
         public override string ToSql()
-        {
-            return GetFieldValue(DataType == null ? Value.GetType() : DataType, Value).ToString();
-        }
-
-    }
-
-    public class ParameterField<T> : ParameterField
-    {
-        public ParameterField()
-        {
-            DataType = typeof(T);
-        }
-
-        public T FieldValue
-        {
-            get
-            {
-                return (T)Value;
-            }
-            set
-            {
-                Value = value;
-            }
-        }
-
-
-
-
-    }
-
-    public class ValueField<T> : ValueField
-    {
-
-        public override string Quotable
-        {
-            get
-            {
-                return GetQuotable(this.DataType);
-            }
-        }
-
-        public ValueField()
-        {
-            DataType = typeof(T);
-        }
-
-        public T FieldValue
-        {
-            get
-            {
-                return (T)Value;
-            }
-            set
-            {
-                Value = value;
-            }
-        }
-
-
-
-    }
-
-    public class Field
-    {
-        public Field()
-        {
-
-        }
-        public string Name
-        {
-            get;
-            internal set;
-        }
-        public string Alias
-        {
-            get;
-            set;
-        }
-
-        public ValueField Value
-        {
-            get;
-            set;
-        }
-        public Table Table { get; set; }
-        public SqlBuilder Builder { get; set; }
-
-        public System.Data.SqlDbType SqlDataType;
-        public int MaxLength = -1;
-        public int Scale = -1;
-
-        
-
-        public virtual string DeclarationName
-        {
-            get
-            {
-                return this.Name;
-            }
-        }
-        public virtual string ReferenceName
-        {
-            get
-            {
-                string table = this.Table.Alias;
-                if (table.StartsWith("["))
-                {
-                    return table + ".[" + (this.Alias ?? this.Name) + "]";
-                }
-                else
-                {
-                    return "[" + table + "].[" + (this.Alias ?? this.Name) + "]";
-                }
-                
-            }
-        }
-
-        public string GetSqlDataType()
-        {
-            string sql = SqlDataType.ToString();
-            if (MaxLength != -1)
-            {
-                sql += "(" + (MaxLength == 0 ? "max" : MaxLength.ToString()) + (Scale != -1 ? "," + Scale : "") + ")";
-            }
-            else
-            {
-                if (SqlDataType == SqlDbType.NVarChar || SqlDataType == SqlDbType.VarChar || SqlDataType == SqlDbType.Text || SqlDataType == SqlDbType.NText)
-                {
-                    sql += "(MAX)";
-                }
-                else if (SqlDataType == SqlDbType.VarBinary)
-                {
-                    if (Value != null)
-                    {
-
-                        sql += "(" + ((byte[])Value.Value).Length.ToString() + ")";
-                    }
-                }
-            }
-            return sql;
-        }
-
-        public virtual string ToSql()
         {
             string tableAlias = this.Table.Alias;
             return (!string.IsNullOrEmpty(tableAlias) ? "[" + tableAlias + "]." : "") + this.Name + (string.IsNullOrEmpty(this.Alias) || Value != null ? "" : " AS [" + Alias + "]");
@@ -680,7 +780,7 @@ namespace TinySql
             Key.Parent = this;
         }
         public UpdateTable(SqlBuilder parent, string name, string Schema = null)
-            : base(parent, name,null,Schema)
+            : base(parent, name, null, Schema)
         {
             Key.Builder = parent;
             Key.Parent = this;
@@ -835,11 +935,11 @@ namespace TinySql
         }
     }
 
-    
 
-  
 
-    
+
+
+
 
 
 
