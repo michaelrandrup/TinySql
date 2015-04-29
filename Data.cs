@@ -55,7 +55,7 @@ namespace TinySql
             return dt;
         }
 
-        public static DataSet DataSet(this SqlBuilder Builder, string ConnectionString = null, params object[] Format)
+        public static DataSet DataSet(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 60, params object[] Format)
         {
             ConnectionString = ConnectionString ?? Builder.ConnectionString ?? SqlBuilder.DefaultConnection;
             if (ConnectionString == null)
@@ -66,7 +66,7 @@ namespace TinySql
             using (TransactionScope trans = new TransactionScope(TransactionScopeOption.RequiresNew, new TransactionOptions()
             {
                 IsolationLevel = System.Transactions.IsolationLevel.ReadCommitted,
-                Timeout = TimeSpan.FromMinutes(1)
+                Timeout = TimeSpan.FromSeconds(TimeoutSeconds)
             }))
             {
                 try
