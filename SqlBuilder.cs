@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
@@ -65,7 +66,31 @@ namespace TinySql
 
         public MetadataDatabase Metadata { get; set; }
 
+        public TempTable SelectIntoTable { get; set; }
 
+        private ConcurrentDictionary<string, SqlBuilder> _SubQueries = new ConcurrentDictionary<string, SqlBuilder>();
+        public ConcurrentDictionary<string, SqlBuilder> SubQueries
+        {
+            get { return _SubQueries; }
+            set { _SubQueries = value; }
+        }
+        public SqlBuilder AddSubQuery(string Name, SqlBuilder Builder)
+        {
+            Builder.ParentBuilder = this;
+            return _SubQueries.AddOrUpdate(Name, Builder, (k, v) => { return Builder; });
+        }
+
+        public SqlBuilder ParentBuilder { get; set; }
+
+
+
+        private List<OrderBy> _OrderByClause = new List<OrderBy>();
+
+        public List<OrderBy> OrderByClause
+        {
+            get { return _OrderByClause; }
+            set { _OrderByClause = value; }
+        }
 
 
 
@@ -202,17 +227,80 @@ namespace TinySql
                 string fields = t.ToSql();
                 selectList += !string.IsNullOrEmpty(fields) ? ", " + fields : "";
             }
+            //
+            // SELECT
+            //
             sb.AppendFormat("SELECT {1} {2}  {0}\r\n", selectList, Distinct ? "DISTINCT" : "", Top.HasValue ? "TOP " + Top.Value.ToString() : "");
+            //
+            // INTO
+            //
+            if (SelectIntoTable != null)
+            {
+                sb.AppendFormat("  INTO  {0}\r\n", SelectIntoTable.ReferenceName);
+            }
+            //
+            // FROM
+            //
             sb.AppendFormat("  FROM  {0}\r\n", BaseTable.ReferenceName);
+            //
+            // JOINS
+            //
             foreach (Join j in JoinConditions)
             {
                 sb.AppendFormat("{0}\r\n", j.ToSql());
             }
+            //
+            // WHERE
+            //
             string where = WhereConditions.ToSql();
             if (where != "()" && !string.IsNullOrEmpty(where))
             {
                 sb.AppendFormat("WHERE {0}\r\n", where);
             }
+            //
+            // TODO: Group by
+            //
+
+            // ORDER BY
+            if (OrderByClause.Count > 0)
+            {
+                sb.AppendFormat(" ORDER  BY {0}", OrderByClause.First().ToSql());
+                foreach (OrderBy order in OrderByClause.Skip(1))
+                {
+                    sb.AppendFormat(", {0}", order.ToSql());
+                }
+                sb.Append("\r\n");
+            }
+
+
+            //
+            // Post SQL stuff
+            // 
+            if (this.SelectIntoTable != null && this.SelectIntoTable.OutputTable)
+            {
+                sb.AppendFormat("SELECT  {0} FROM {1}\r\n", SelectIntoTable.ToSql(), SelectIntoTable.ReferenceName);
+                if (SelectIntoTable.OrderByClause.Count > 0)
+                {
+                    sb.AppendFormat(" ORDER  BY {0}", SelectIntoTable.OrderByClause.First().ToSql());
+                    foreach (OrderBy order in SelectIntoTable.OrderByClause.Skip(1))
+                    {
+                        sb.AppendFormat(", {0}", order.ToSql());
+                    }
+                    sb.Append("\r\n");
+                }
+            }
+
+            //
+            // Sub Queries
+            //
+            if (_SubQueries.Count > 0)
+            {
+                foreach (SqlBuilder sub in _SubQueries.Values)
+                {
+                    sb.AppendFormat("\r\n-- Sub Query\r\n{0}\r\n", sub.ToSql(Format));
+                }
+            }
+
             return sb.ToString();
         }
 

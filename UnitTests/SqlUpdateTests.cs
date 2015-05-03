@@ -10,49 +10,80 @@ namespace UnitTests
     public class SqlUpdateTests : BaseTest
     {
         [TestMethod]
-        public void UpdatePersonWithOutputResults()
+        public void UpdateAccountWithOutputResults()
         {
-            string NewTitle = Guid.NewGuid().ToString().Substring(0, 8);
+            string NewName = Guid.NewGuid().ToString();
             SqlBuilder builder = SqlBuilder.Update()
-                .Table("Person", "Person")
+                .Table("account")
                     .Output()
-                    .Column("BusinessEntityID", System.Data.SqlDbType.Int)
-                    .Column("Title", System.Data.SqlDbType.VarChar, 8)
+                    .Column("AccountID", System.Data.SqlDbType.Decimal)
+                    .Column("Name", System.Data.SqlDbType.VarChar, 50)
                 .UpdateTable()
-                .Set<string>("Title", System.Data.SqlDbType.VarChar, NewTitle)
-                .Where<int>("Person", "BusinessEntityID", SqlOperators.Equal, 1)
+                .Set<string>("Name", System.Data.SqlDbType.VarChar, NewName)
+                .Where<decimal>("account", "AccountID", SqlOperators.Equal, 526)
 
                 .Builder;
             Console.WriteLine(builder.ToSql());
             Guid g = StopWatch.Start();
-            List<Person> Persons = builder.List<Person>();
+            List<Account> Accounts = builder.List<Account>();
             Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds, "One person updated and retrieved as List<T> in {0}ms"));
-            Assert.IsTrue(Persons.Count == 1);
-            Assert.AreEqual<string>(NewTitle, Persons.First().Title);
+            Assert.IsTrue(Accounts.Count == 1);
+            Assert.AreEqual<string>(NewName, Accounts.First().Name);
         }
 
         [TestMethod]
-        public void UpdatePersonWithJoinAndOutputResults()
+        public void UpdateAccountWithJoinAndOutputResults()
         {
-            string NewTitle = Guid.NewGuid().ToString().Substring(0, 8);
+            string NewTitle = Guid.NewGuid().ToString();
             SqlBuilder builder = SqlBuilder.Update()
-                .Table("Person", "Person")
+                .Table("account")
                     .Output()
-                    .Column("BusinessEntityID", System.Data.SqlDbType.Int)
-                    .Column("Title", System.Data.SqlDbType.VarChar, 8)
+                    .Column("AccountID", System.Data.SqlDbType.Decimal)
+                    .Column("Name", System.Data.SqlDbType.VarChar, 50)
                 .UpdateTable()
-                .Set<string>("Title", System.Data.SqlDbType.VarChar, NewTitle)
-                .InnerJoin("BusinessEntity",null,"Person").On("BusinessEntityID", SqlOperators.Equal, "BusinessEntityID")
+                .Set<string>("Name", System.Data.SqlDbType.VarChar, NewTitle)
+                .InnerJoin("Systemuser").On("OwningUserID", SqlOperators.Equal, "SystemUserID")
                 .ToTable()
-                .Where<int>("BusinessEntity", "BusinessEntityID", SqlOperators.Equal, 1)
+                .Where<decimal>("SystemUser", "SystemUserID", SqlOperators.Equal, 1)
 
                 .Builder;
             Console.WriteLine(builder.ToSql());
             Guid g = StopWatch.Start();
-            List<Person> Persons = builder.List<Person>();
-            Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds, "One person updated and retrieved as List<T> in {0}ms"));
-            Assert.IsTrue(Persons.Count == 1);
-            Assert.AreEqual<string>(NewTitle, Persons.First().Title);
+            List<Account> Accounts = builder.List<Account>();
+            Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds, "One account updated and retrieved as List<T> in {0}ms"));
+            Assert.IsTrue(Accounts.Count == 1);
+            Assert.AreEqual<string>(NewTitle, Accounts.First().Name);
+        }
+
+        [TestMethod]
+        public void AutoUpdateFromRowDataObject()
+        {
+            Guid g = StopWatch.Start();
+            SqlBuilder builder = SqlBuilder.Select().WithMetadata(true,SetupData.MetadataFileName)
+            .From("Account")
+            .AllColumns()
+            .Where<decimal>("Account", "AccountID", SqlOperators.Equal, 543)
+            .Builder;
+            Console.WriteLine(builder.ToSql());
+            ResultTable r = builder.Execute();
+            Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds, "1 Account selected in {0}ms"));
+            g = StopWatch.Start();
+            Assert.IsTrue(r.Count == 1);
+            RowData row = r.First();
+            row.Column("Name", Guid.NewGuid().ToString());
+            builder = SqlBuilder.Update().Update(row, new string[] { "AccountID", "Name" });
+            Console.WriteLine(builder.ToSql());
+            r = builder.Execute();
+            Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds, "1 Account updated in {0}ms"));
+            row.AcceptChanges();
+            Assert.IsTrue(r.First().Column<string>("Name") == row.Column<string>("Name"));
+            Assert.IsFalse(row.HasChanges);
+            
+
+
+                
+
+
         }
 
     }

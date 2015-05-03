@@ -19,7 +19,7 @@ namespace TinySql.Metadata
 
         public ConcurrentDictionary<string, MetadataTable> Tables = new ConcurrentDictionary<string, MetadataTable>();
         public ConcurrentDictionary<int, MetadataForeignKey> ForeignKeys = new ConcurrentDictionary<int, MetadataForeignKey>();
-        public ConcurrentDictionary<int, List<int>> InversionKeys = new ConcurrentDictionary<int, List<int>>();
+        public ConcurrentDictionary<string, List<int>> InversionKeys = new ConcurrentDictionary<string, List<int>>();
 
 
         public MetadataTable this[string TableName]
@@ -38,6 +38,18 @@ namespace TinySql.Metadata
             }
         }
 
+        public MetadataTable FindTable(string Name, StringComparison CompareOption = StringComparison.OrdinalIgnoreCase)
+        {
+            string[] keys = Tables.Keys.Where(x => x.EndsWith(Name, CompareOption)).ToArray();
+            if (keys.Length != 1)
+            {
+                return null;
+            }
+            return this[keys[0]];
+
+        }
+
+
     }
     [Serializable]
     public class MetadataTable
@@ -50,6 +62,15 @@ namespace TinySql.Metadata
         public MetadataDatabase Parent { get; set; }
         public string Schema { get; set; }
         public string Name { get; set; }
+
+        public string Fullname
+        {
+            get
+            {
+                return (!string.IsNullOrEmpty(Schema) ? Schema + "." + Name : Name);
+            }
+        }
+        
         public ConcurrentDictionary<string, MetadataColumn> Columns = new ConcurrentDictionary<string, MetadataColumn>();
 
         public MetadataColumn this[string ColumnName]
@@ -73,6 +94,17 @@ namespace TinySql.Metadata
             get
             {
                 return Indexes.Values.FirstOrDefault(x => x.IsPrimaryKey == true);
+            }
+        }
+
+        public IEnumerable<MetadataForeignKey> FindForeignKeys(MetadataColumn Column)
+        {
+            foreach (MetadataForeignKey FK in this.ForeignKeys.Values)
+            {
+                if (FK.ColumnReferences.Select(x => x.Column).Any(x => x.Equals(Column)))
+                {
+                    yield return FK;
+                }
             }
         }
 
@@ -124,7 +156,7 @@ namespace TinySql.Metadata
 
     public class ForeignKeyCollection : List<MetadataForeignKey> //  IEnumerable<MetadataForeignKey>
     {
-        public void AddKey(MetadataForeignKey Value, int InversionKey)
+        public void AddKey(MetadataForeignKey Value, string InversionKey)
         {
             this.Add(Value);
             List<int> keys = new List<int>(new int[] { Value.ID });
@@ -135,39 +167,6 @@ namespace TinySql.Metadata
             });
 
         }
-        //public List<int> list = new List<int>();
-
-        //public MetadataForeignKey Add(MetadataForeignKey Value, int InversionKey)
-        //{
-        //    Value = this.Database.ForeignKeys.AddOrUpdate(Value.ID, Value, (idx, existing) =>
-        //    {
-        //        return Value;
-        //    });
-        //    List<int> keys = new List<int>(new int[] { Value.ID });
-        //    this.Database.InversionKeys.AddOrUpdate(InversionKey, keys, (key, existing) =>
-        //    {
-        //        existing.Add(Value.ID);
-        //        return existing;
-        //    });
-        //    list.Add(Value.ID);
-        //    return Value;
-        //}
-
-        //public bool Update(MetadataForeignKey Value)
-        //{
-        //    return this.Database.ForeignKeys.TryUpdate(Value.ID, Value, Value);
-        //}
-
-        //public bool Remove(MetadataForeignKey Value)
-        //{
-        //    if (this.Database.ForeignKeys.TryRemove(Value.ID, out Value))
-        //    {
-        //        //int i = Value.ID;
-        //        //return list.TryTake(out i);
-        //        list.Remove(Value.ID);
-        //    }
-        //    return false;
-        //}
 
         public MetadataTable Parent { get; set; }
         public MetadataDatabase Database {get; set;}
@@ -201,8 +200,22 @@ namespace TinySql.Metadata
         public string Collation { get; set; }
         public SqlDbType SqlDataType { get; set; }
         public int Length { get; set; }
-        public int Scale { get; set; }
-        public int Precision { get; set; }
+
+        private int _Scale = -1;
+
+        public int Scale
+        {
+            get { return _Scale; }
+            set { _Scale = value; }
+        }
+
+        private int _Precision = -1;
+
+        public int Precision
+        {
+            get { return _Precision; }
+            set { _Precision = value; }
+        }
         private string _DataTypeName;
         public string DataTypeName
         {
@@ -248,6 +261,17 @@ namespace TinySql.Metadata
                 return IsComputed || IsIdentity || IsRowGuid;
             }
         }
+
+        public void PopulateField<T>(T field) where T : class
+        {
+            Field f = field as Field;
+            f.Name = this.Name;
+            f.MaxLength = this.Length;
+            f.Scale = this.Scale;
+            f.Precision = this.Precision;
+            f.SqlDataType = this.SqlDataType;
+        }
+
     }
 
 

@@ -19,24 +19,57 @@ namespace UnitTests
         {
             
         }
+
+
+
     }
 
-    public class Person
+
+    
+
+
+    public class Account
     {
-        public int BusinessEntityID = 0;
-        public string FirstName;
-        private string MiddleName { get; set; }
-        public string Title { get; set; }
-        public string LastName;
-        public XmlDocument Demographics;
-        public DateTime ModifiedDate { get; set; }
-        public string Email { get; set; }
-        public string AddressLine1;
-        public string AddressLine2;
-        public string PostalCode;
-        public string City;
+        public decimal AccountID { get; set; }
+        public string Name { get; set; }
+        public string Address1 { get; set; }
+        public string Address2 { get; set; }
+        public string Address3 { get; set; }
+        public string PostalCode { get; set; }
+        public string City { get; set; }
 
+        public string Telephone { get; set; }
+        public string Telefax { get; set; }
+        public string Web { get; set; }
+
+        public decimal AccountTypeID{ get; set; }
+
+        public decimal StateID { get; set; }
+
+        public string State { get; set; }
+
+        public decimal DatasourceID { get; set; }
+
+        public string Datasource { get; set; }
+
+        public decimal CreatedBy { get; set; }
+        public decimal ModifiedBy { get; set; }
+
+        public DateTime CreatedOn { get; set; }
+        public DateTime ModifiedOn { get; set; }
+
+        public decimal OwningUserID { get; set; }
+        public decimal OwningBusinessUnitID { get; set; }
+
+
+
+
+
+
+
+        
     }
+
 
     [Serializable()]
     public class Shopper

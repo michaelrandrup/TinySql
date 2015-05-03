@@ -6,61 +6,69 @@ using System.Threading.Tasks;
 using Microsoft.SqlServer.Management.Common;
 using Microsoft.SqlServer.Management.Smo;
 using System.Data;
+using System.Runtime.Caching;
 
 namespace TinySql.Metadata
 {
     public class SqlMetadataDatabase
     {
         #region ctor
-        internal SqlMetadataDatabase(string ConnectionString)
+        internal SqlMetadataDatabase(string ConnectionString, bool UseCache = true, string FileName = null)
         {
-            Initialize(ConnectionString);
+            Initialize(ConnectionString, UseCache, FileName);
             this.builder = new SqlBuilder(ConnectionString);
         }
-        internal SqlMetadataDatabase(SqlBuilder Builder)
+        internal SqlMetadataDatabase(SqlBuilder Builder, bool UseCache = true, string FileName = null)
         {
-            Initialize(Builder.ConnectionString ?? SqlBuilder.DefaultConnection);
+            Initialize(Builder.ConnectionString ?? SqlBuilder.DefaultConnection, UseCache, FileName);
             this.builder = Builder;
         }
 
-        private void Initialize(string ConnectionString)
+        private void Initialize(string connectionString, bool useCache, string FileName)
         {
-            con = new System.Data.SqlClient.SqlConnectionStringBuilder(ConnectionString);
-            server = new Server(GetConnection(ConnectionString));
-            db = new Database(server, con.InitialCatalog);
-            db.Refresh();
+            ConnectionBuilder = new System.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
+            this.UseCache = useCache;
+            this.MetadataKey = ConnectionBuilder.ConnectionString.GetHashCode().ToString();
+            this.FileName = FileName;
+
         }
 
         #endregion
 
 
-        public static SqlMetadataDatabase FromBuilder(SqlBuilder Builder)
+        public static SqlMetadataDatabase FromBuilder(SqlBuilder Builder, bool UseCache = true, string FileName = null)
         {
-            return new SqlMetadataDatabase(Builder);
+            return new SqlMetadataDatabase(Builder, UseCache, FileName);
         }
-        public static SqlMetadataDatabase FromConnection(string ConnectionString)
+        public static SqlMetadataDatabase FromConnection(string ConnectionString, bool UseCache = true, string FileName = null)
         {
-            return new SqlMetadataDatabase(ConnectionString);
+            return new SqlMetadataDatabase(ConnectionString, UseCache, FileName);
         }
 
         public MetadataDatabase BuildMetadata(bool PrimaryKeyIndexOnly = true)
         {
+            MetadataDatabase mdb = FromCache();
+            if (mdb != null)
+            {
+                // mdb.Builder = builder;
+                return mdb;
+            }
             Guid g = Guid.NewGuid();
             try
             {
-                g = db.DatabaseGuid;
+                g = SqlDatabase.DatabaseGuid;
             }
             catch (Exception)
             {
             }
-            MetadataDatabase mdb = new MetadataDatabase()
+            mdb = new MetadataDatabase()
             {
                 ID = g,
-                Name = db.Name,
-                Server = server.Name + (!string.IsNullOrEmpty(server.InstanceName) && server.Name.IndexOf('\\') == -1 ? "" : ""),
+                Name = SqlDatabase.Name,
+                Server = SqlServer.Name + (!string.IsNullOrEmpty(SqlServer.InstanceName) && SqlServer.Name.IndexOf('\\') == -1 ? "" : ""),
                 Builder = builder
             };
-            foreach (Microsoft.SqlServer.Management.Smo.Table table in db.Tables)
+            foreach (Microsoft.SqlServer.Management.Smo.Table table in SqlDatabase.Tables)
             {
                 table.Refresh();
                 BuildMetadata(mdb, table);
@@ -68,12 +76,13 @@ namespace TinySql.Metadata
             //Parallel.ForEach(db.Tables.OfType<Microsoft.SqlServer.Management.Smo.Table>(),
             //    new ParallelOptions { MaxDegreeOfParallelism = 2 },
             //    table => BuildMetadata(mdb, table));
-            builder.Metadata = mdb;
+            // builder.Metadata = mdb;
+            ToCache(mdb);
             return mdb;
 
         }
 
-        private MetadataTable BuildMetadata(MetadataDatabase mdb, Microsoft.SqlServer.Management.Smo.Table table, bool PrimaryKeyIndexOnly = true)
+        private MetadataTable BuildMetadata(MetadataDatabase mdb, Microsoft.SqlServer.Management.Smo.Table table, bool PrimaryKeyIndexOnly = true, bool SelfJoin = false)
         {
             MetadataTable mt = null;
             table.Refresh();
@@ -89,7 +98,7 @@ namespace TinySql.Metadata
                 Name = table.Name,
                 Parent = mdb
             };
-          
+
 
             foreach (Microsoft.SqlServer.Management.Smo.Column column in table.Columns)
             {
@@ -139,39 +148,46 @@ namespace TinySql.Metadata
                     mt.Indexes.AddOrUpdate(key.Name, key, (k, v) => { return key; });
                 }
             }
-
-            foreach (ForeignKey FK in table.ForeignKeys)
+            if (!SelfJoin)
             {
-                MetadataForeignKey mfk = new MetadataForeignKey()
+                foreach (ForeignKey FK in table.ForeignKeys)
                 {
-                    ID = FK.ID,
-                    Parent = mt,
-                    Database = mdb,
-                    Name = FK.Name,
-                    ReferencedKey = FK.ReferencedKey,
-                    ReferencedSchema = FK.ReferencedTableSchema,
-                    ReferencedTable = FK.ReferencedTable
-                };
-                MetadataTable mtref = null;
-                if (!mdb.Tables.TryGetValue(mfk.ReferencedSchema + "." + mfk.ReferencedTable, out mtref))
-                {
-                    mtref = BuildMetadata(mdb, mfk.ReferencedTable, mfk.ReferencedSchema);
-                }
-                foreach (ForeignKeyColumn cc in FK.Columns)
-                {
-                    mfk.ColumnReferences.Add(new MetadataColumnReference()
+                    MetadataForeignKey mfk = new MetadataForeignKey()
                     {
-                        Parent = mfk,
+                        ID = FK.ID,
+                        Parent = mt,
                         Database = mdb,
-                        Name = cc.Name,
-                        Column = mt[cc.Name],
-                        ReferencedColumn = mtref[cc.ReferencedColumn]
+                        Name = FK.Name,
+                        ReferencedKey = FK.ReferencedKey,
+                        ReferencedSchema = FK.ReferencedTableSchema,
+                        ReferencedTable = FK.ReferencedTable
+                    };
+                    MetadataTable mtref = null;
+                    if (!mdb.Tables.TryGetValue(mfk.ReferencedSchema + "." + mfk.ReferencedTable, out mtref))
+                    {
+                        bool self = false;
+                        if (mfk.ReferencedSchema == mt.Schema && mfk.ReferencedTable == mt.Name)
+                        {
+                            self = true;
+                        }
+                        mtref = BuildMetadata(mdb, mfk.ReferencedTable, mfk.ReferencedSchema, PrimaryKeyIndexOnly, self);
+                    }
+                    foreach (ForeignKeyColumn cc in FK.Columns)
+                    {
+                        mfk.ColumnReferences.Add(new MetadataColumnReference()
+                        {
+                            Parent = mfk,
+                            Database = mdb,
+                            Name = cc.Name,
+                            Column = mt[cc.Name],
+                            ReferencedColumn = mtref[cc.ReferencedColumn]
+                        });
+                    }
+                    mt.ForeignKeys.AddOrUpdate(mfk.Name, mfk, (key, existing) =>
+                    {
+                        return mfk;
                     });
                 }
-                mt.ForeignKeys.AddOrUpdate(mfk.Name, mfk, (key, existing) =>
-                {
-                    return mfk;
-                });
             }
 
             mdb.Tables.AddOrUpdate(mt.Schema + "." + mt.Name, mt, (key, existing) =>
@@ -179,20 +195,102 @@ namespace TinySql.Metadata
                 return mt;
             });
             return mt;
-            Console.WriteLine("Built table {0}", mt.Name);
         }
 
-        public MetadataTable BuildMetadata(MetadataDatabase mdb, string TableName, string Schema = "dbo", bool PrimaryKeyIndexOnly = true)
+        public MetadataTable BuildMetadata(MetadataDatabase mdb, string TableName, string Schema = "dbo", bool PrimaryKeyIndexOnly = true, bool SelfJoin = false)
         {
             MetadataTable mt = null;
             if (mdb.Tables.TryGetValue(TableName, out mt))
             {
                 return mt;
             }
-            Microsoft.SqlServer.Management.Smo.Table t = new Microsoft.SqlServer.Management.Smo.Table(db, TableName, Schema);
+            Microsoft.SqlServer.Management.Smo.Table t = new Microsoft.SqlServer.Management.Smo.Table(SqlDatabase, TableName, Schema);
             t.Refresh();
-            return BuildMetadata(mdb, t);
+            return BuildMetadata(mdb, t, PrimaryKeyIndexOnly, SelfJoin);
         }
+
+        private long GetVersion()
+        {
+            try
+            {
+                DataSet ds = SqlDatabase.ExecuteWithResults(VERSION_SQL);
+                if (ds.Tables.Count == 1 && ds.Tables[0].Rows.Count == 1 && !ds.Tables[0].Rows[0].IsNull(0))
+                {
+                    DateTime date = ds.Tables[0].Rows[0].Field<DateTime>(0);
+                    return date.Ticks;
+                }
+                return 0;
+            }
+            catch (Exception)
+            {
+                return -1;
+            }
+        }
+
+        private const string VERSION_SQL = "select MAX(modify_date) from sys.objects where is_ms_shipped = 0";
+
+        private bool ToCache(MetadataDatabase mdb)
+        {
+            if (!UseCache)
+            {
+                return true;
+            }
+            return CacheMetadata(MetadataKey, mdb);
+        }
+
+        private MetadataDatabase FromCache()
+        {
+            if (UseCache == false)
+            {
+                return null;
+            }
+            MetadataDatabase mdb = CacheMetadata(MetadataKey);
+            if (mdb != null)
+            {
+                return mdb;
+            }
+            if (!string.IsNullOrEmpty(FileName))
+            {
+                mdb = Serialization.FromFile(FileName);
+                CacheMetadata(MetadataKey, mdb);
+            }
+            return mdb;
+        }
+
+        private static CacheItemPolicy _CachePolicy = new CacheItemPolicy() { AbsoluteExpiration = MemoryCache.InfiniteAbsoluteExpiration, SlidingExpiration = MemoryCache.NoSlidingExpiration };
+        public static CacheItemPolicy CachePolicy
+        {
+            get { return _CachePolicy; }
+            set { _CachePolicy = value; }
+        }
+
+
+        public static bool CacheMetadata(string MetadataKey, MetadataDatabase mdb, CacheItemPolicy Policy = null)
+        {
+            if (MemoryCache.Default.Contains(MetadataKey))
+            {
+                return true;
+            }
+            CacheItem item = MemoryCache.Default.AddOrGetExisting(new CacheItem(MetadataKey, Serialization.ToJson<MetadataDatabase>(mdb)), (Policy ?? CachePolicy));
+            return item.Value == null;
+        }
+
+        public bool ClearMetadata()
+        {
+            return MemoryCache.Default.Remove(MetadataKey) != null;
+        }
+
+
+        public static MetadataDatabase CacheMetadata(string MetadataKey)
+        {
+            CacheItem item = MemoryCache.Default.GetCacheItem(MetadataKey);
+            if (item != null)
+            {
+                return Serialization.FromJson<MetadataDatabase>(item.Value.ToString());
+            }
+            return null;
+        }
+
 
 
 
@@ -205,12 +303,12 @@ namespace TinySql.Metadata
             switch (ColumnType.SqlDataType)
             {
                 case SqlDataType.UserDefinedDataType:
-                    db.UserDefinedDataTypes.Refresh(true);
-                    UserDefinedDataType udt = db.UserDefinedDataTypes[ColumnType.Name];
+                    SqlDatabase.UserDefinedDataTypes.Refresh(true);
+                    UserDefinedDataType udt = SqlDatabase.UserDefinedDataTypes[ColumnType.Name];
                     column.SqlDataType = (SqlDbType)Enum.Parse(typeof(SqlDbType), udt.SystemType, true);
                     column.Length = udt.Length;
-                    column.Scale = udt.NumericScale;
-                    column.Precision = udt.NumericPrecision;
+                    column.Scale = ColumnType.NumericScale;
+                    column.Precision = ColumnType.NumericPrecision;
                     break;
 
                 case SqlDataType.SysName:
@@ -220,6 +318,8 @@ namespace TinySql.Metadata
 
                 case SqlDataType.UserDefinedType:
                     column.SqlDataType = System.Data.SqlDbType.Udt;
+                    column.Scale = ColumnType.NumericScale;
+                    column.Precision = ColumnType.NumericPrecision;
                     break;
 
                 case SqlDataType.NVarCharMax:
@@ -236,6 +336,8 @@ namespace TinySql.Metadata
 
                 case SqlDataType.Numeric:
                     column.SqlDataType = SqlDbType.Decimal;
+                    column.Scale = ColumnType.NumericScale;
+                    column.Precision = ColumnType.NumericPrecision;
                     break;
 
                 case SqlDataType.UserDefinedTableType:
@@ -243,16 +345,30 @@ namespace TinySql.Metadata
                 case SqlDataType.Geometry:
                 case SqlDataType.Geography:
                     column.SqlDataType = SqlDbType.Variant;
+                    column.Scale = ColumnType.NumericScale;
+                    column.Precision = ColumnType.NumericPrecision;
                     break;
 
                 default:
                     column.SqlDataType = (SqlDbType)Enum.Parse(typeof(SqlDbType), ColumnType.SqlDataType.ToString());
+                    switch (column.SqlDataType)
+                    {
+                        case SqlDbType.Decimal:
+                        case SqlDbType.Float:
+                        case SqlDbType.Money:
+                        case SqlDbType.Real:
+                        case SqlDbType.SmallMoney:
+                            column.Scale = ColumnType.NumericScale;
+                            column.Precision = ColumnType.NumericPrecision;
+                            break;
+
+                        default:
+                            break;
+                    }
                     break;
             }
 
             column.Length = ColumnType.MaximumLength;
-            column.Scale = ColumnType.NumericScale;
-            column.Precision = ColumnType.NumericPrecision;
             column.DataType = ConvertSqlTypeToType(column.SqlDataType);
         }
 
@@ -335,10 +451,51 @@ namespace TinySql.Metadata
             return new ServerConnection(con);
         }
 
-        private System.Data.SqlClient.SqlConnectionStringBuilder con;
-        private Server server;
-        private Database db;
+        private System.Data.SqlClient.SqlConnectionStringBuilder _ConnectionBuilder = null;
+        public System.Data.SqlClient.SqlConnectionStringBuilder ConnectionBuilder
+        {
+            get { return _ConnectionBuilder; }
+            private set { _ConnectionBuilder = value; }
+        }
+        private Server _SqlServer = null;
+        public Server SqlServer
+        {
+            get
+            {
+                if (_SqlServer == null)
+                {
+                    _SqlServer = new Server(GetConnection(ConnectionBuilder.ConnectionString));
+                }
+                return _SqlServer;
+            }
+            set { _SqlServer = value; }
+        }
+        private Database _SqlDatabase;
+
+        public Database SqlDatabase
+        {
+            get
+            {
+                if (_SqlDatabase == null)
+                {
+                    SqlDatabase = new Database(SqlServer, ConnectionBuilder.InitialCatalog);
+                    SqlDatabase.Refresh();
+                }
+                return _SqlDatabase;
+            }
+            set { _SqlDatabase = value; }
+        }
         internal SqlBuilder builder;
+        public string MetadataKey { get; private set; }
+        private bool _UseCache = true;
+
+        public bool UseCache
+        {
+            get { return _UseCache; }
+            private set { _UseCache = value; }
+        }
+
+        public string FileName { get; private set; }
 
 
 

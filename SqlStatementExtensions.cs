@@ -2,10 +2,16 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 
 namespace TinySql
 {
+    public class TableHelper<TModel>
+    {
+        public TModel Model;
+        public Table table;
+    }
     public static class SqlStatementExtensions
     {
         #region Support functions
@@ -13,6 +19,19 @@ namespace TinySql
         {
             return builder.Tables.FirstOrDefault(x => x.Name.Equals(TableNameOrAlias, StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(TableNameOrAlias, StringComparison.InvariantCultureIgnoreCase)));
         }
+
+        public static Field FindField(this Table table, string NameOrAlias)
+        {
+            return table.FieldList.FirstOrDefault(x => x.Name.Equals(NameOrAlias, StringComparison.OrdinalIgnoreCase) || (x.Alias != null && x.Alias.Equals(NameOrAlias, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        public static Table Property<TModel, TProperty>(this TableHelper<TModel> helper, Expression<Func<TModel, TProperty>> expression)
+        {
+            Expression exp = expression.ReduceExtensions();
+            return helper.table;
+        }
+
+
         #endregion
 
 
@@ -30,6 +49,24 @@ namespace TinySql
                 builder.Tables.Add(t);
                 return t;
             }
+        }
+
+        public static UpdateTable Set(this UpdateTable table, string FieldName, SqlDbType SqlDataType, object Value, Type DataType, int MaxLength = -1, int Scale = -1)
+        {
+            table.FieldList.Add(new ParameterField()
+            {
+                Builder = table.Builder,
+                Name = FieldName,
+                ParameterName = "@" + FieldName,
+                MaxLength = MaxLength,
+                Scale = Scale,
+                SqlDataType = SqlDataType,
+                DataType = DataType,
+                Value = Value
+                
+
+            });
+            return table;
         }
 
         public static UpdateTable Set<T>(this UpdateTable table, string FieldName, SqlDbType DataType, T Value, int MaxLength = -1, int Scale = -1)
@@ -153,6 +190,33 @@ namespace TinySql
 
         #region Table
 
+        //public static TempTable OrderBy(this TempTable table, string FieldName, OrderByDirections Directions)
+        //{
+
+        //}
+
+        public static SqlBuilder Builder(this Table table)
+        {
+            SqlBuilder b = table.Builder;
+            while (b.ParentBuilder != null)
+            {
+                b = b.ParentBuilder;
+            }
+            return b;
+        }
+
+        public static SqlBuilder Builder(this SqlBuilder Builder)
+        {
+            SqlBuilder b = Builder;
+            while (b.ParentBuilder != null)
+            {
+                b = b.ParentBuilder;
+            }
+            return b;
+        }
+
+
+
         public static Table From(this Table sql, string TableName, string Alias = null)
         {
             return sql.Builder.From(TableName, Alias);
@@ -172,6 +236,82 @@ namespace TinySql
         public static Table ToTable(this JoinConditionGroup group)
         {
             return group.Join.ToTable;
+        }
+
+        public static Table Into(this Table table, string TempTable, bool OutputTable = true)
+        {
+            if (table.Builder.SelectIntoTable != null)
+            {
+                return table;
+            }
+            table.Builder.SelectIntoTable = new TempTable()
+            {
+                Builder = table.Builder,
+                Name = TempTable
+            };
+            table.Builder.SelectIntoTable.AllColumns();
+            return table;
+        }
+
+        public static TempTable OrderBy(this TempTable table, string FieldName, OrderByDirections Direction)
+        {
+            Field field = table.FindField(FieldName);
+            if (field == null)
+            {
+                if (table.FieldList.Any(x => x.Name.Equals("*")))
+                {
+                    field = new Field()
+                    {
+                        Builder = table.Builder,
+                        Table = table,
+                        Alias = null,
+                        Name = FieldName
+                    };
+                }
+                else
+                {
+                    throw new InvalidOperationException(string.Format("The field '{0}' was not found in the table '{1}'", FieldName, table.Name));
+                }
+            }
+            if (!table.OrderByClause.Any(x => x.Field.ReferenceName.Equals(field.ReferenceName)))
+            {
+                table.OrderByClause.Add(new OrderBy()
+                {
+                    Field = field,
+                    Direction = Direction
+                });
+            }
+            return table;
+        }
+
+        public static Table OrderBy(this Table table, string FieldName, OrderByDirections Direction)
+        {
+            Field field = table.FindField(FieldName);
+            if (field == null)
+            {
+                if (table.FieldList.Any(x => x.Name.Equals("*")))
+                {
+                    field = new Field()
+                    {
+                        Builder = table.Builder,
+                        Table = table,
+                        Alias = null,
+                        Name = FieldName
+                    };
+                }
+                else
+                {
+                    throw new InvalidOperationException(string.Format("The field '{0}' was not found in the table '{1}'", FieldName, table.Name));
+                }
+
+            }
+            table.Builder.OrderByClause.Add(new OrderBy()
+                {
+                    Field = field,
+                    Direction = Direction
+                });
+            return table;
+
         }
 
         #endregion
@@ -212,13 +352,16 @@ namespace TinySql
         {
             for (int i = 0; i < Fields.Length; i++)
             {
-                sql.FieldList.Add(new Field()
+                if (sql.FindField(Fields[i]) == null)
                 {
-                    Name = Fields[i],
-                    Alias = null,
-                    Table = sql,
-                    Builder = sql.Builder
-                });
+                    sql.FieldList.Add(new Field()
+                    {
+                        Name = Fields[i],
+                        Alias = null,
+                        Table = sql,
+                        Builder = sql.Builder
+                    });
+                }
             }
             return sql;
         }
@@ -250,6 +393,45 @@ namespace TinySql
         #endregion
 
         #region JOIN conditions
+
+        public static Table SubSelect(this Table table, string TableName, string FromField, string ToField, string Alias = null, string Schema = null)
+        {
+            string key = table.Alias + "." + FromField + ":" + (Alias ?? (Schema != null ? Schema + "." : "") + TableName) + "." + ToField;
+            SqlBuilder b;
+            if (table.Builder.SubQueries.TryGetValue(key, out b))
+            {
+                return b.Tables[0];
+            }
+            string tmp = System.IO.Path.GetRandomFileName().Replace(".", "");
+            TempTable into = table.Builder.SelectIntoTable;
+            if (into == null)
+            {
+                table.Into(tmp, true);
+                into = table.Builder.SelectIntoTable;
+            }
+            if (table.FindField(FromField) == null && !table.FieldList.Any(x => x.Name == "*"))
+            {
+                table.Column(FromField);
+            }
+            into.OrderBy(FromField, OrderByDirections.Asc);
+
+            tmp = System.IO.Path.GetRandomFileName().Replace(".", "");
+            b = SqlBuilder.Select()
+                .From(TableName, Alias, Schema)
+                .Column(ToField)
+                .Into(tmp, true)
+                .WhereExists(table.Builder.SelectIntoTable)
+                .And(into, ToField, SqlOperators.Equal, FromField)
+                .Builder.SelectIntoTable
+                    .OrderBy(FromField, OrderByDirections.Asc)
+                .Builder;
+
+
+            table.Builder.AddSubQuery(key, b);
+            return b.Tables[0];
+
+        }
+
 
         public static Join InnerJoin(this Table sql, string TableName, string Alias = null, string Schema = null)
         {
@@ -284,7 +466,7 @@ namespace TinySql
             return group.Join.FromTable.CrossJoin(TableName);
         }
 
-        private static Join MakeJoin(Join.JoinTypes JoinType, Table FromTable, string ToTable, string Alias = null, string Schema = null)
+        internal static Join MakeJoin(Join.JoinTypes JoinType, Table FromTable, string ToTable, string Alias = null, string Schema = null)
         {
             Table right = FromTable.Builder.Tables.FirstOrDefault(x => x.Name.Equals((Alias ?? ToTable), StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(Alias, StringComparison.InvariantCultureIgnoreCase)));
             if (right == null)
@@ -306,6 +488,11 @@ namespace TinySql
         public static ExistsConditionGroup And(this ExistsConditionGroup group, string FromField, SqlOperators Operator, string ToField)
         {
             return ExistsConditionInternal(group, FromField, Operator, ToField, group.Conditions.Count > 0 ? BoolOperators.And : BoolOperators.None);
+        }
+
+        public static ExistsConditionGroup And(this ExistsConditionGroup group, Table InTable, string InField, SqlOperators Operator, string ToField)
+        {
+            return ExistsConditionInternal(group, InTable, InField, Operator, ToField, group.Conditions.Count == 0 ? BoolOperators.None : BoolOperators.And);
         }
 
         public static ExistsConditionGroup And<T>(this ExistsConditionGroup group, string TableName, string FieldName, SqlOperators Operator, T Value)
@@ -349,6 +536,10 @@ namespace TinySql
                 leftField = fv
             };
             group.Conditions.Add(fc);
+            if (group.SubConditions.Count > 0)
+            {
+                group.SubConditions.First().ConditionLink = (group.SubConditions.First().ConditionLink == BoolOperators.None ? group.SubConditions.First().ConditionLink = BoolOperators.And : group.SubConditions.First().ConditionLink);
+            }
             return group;
         }
 
@@ -385,6 +576,53 @@ namespace TinySql
             return ExistsGroupInternal(group, BoolOperators.Or);
         }
 
+        private static ExistsConditionGroup ExistsConditionInternal(ExistsConditionGroup group, Table InTable, string InField, SqlOperators Operator, string ToField, BoolOperators LinkType)
+        {
+            // Field lf = FromTable.FieldList.FirstOrDefault(x => x.Name.Equals(FromField, StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(FromField, StringComparison.InvariantCultureIgnoreCase)));
+            Field lf = InTable.FindField(InField);
+            if (lf == null || group.FromTable == null)
+            {
+                lf = new Field()
+                {
+                    Table = InTable,
+                    Builder = group.Builder,
+                    Name = InField,
+                    Alias = null
+                };
+            }
+            Table t = group.Builder.FindTable(group.FromTable);
+            Field rf = null;
+            if (t != null)
+            {
+                rf = t.FindField(ToField);
+            }
+            // Field rf = group.InTable.FieldList.FirstOrDefault(x => x.Name.Equals(ToField, StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(ToField, StringComparison.InvariantCultureIgnoreCase)));
+            // Field rf = group.InTable.FieldList.FirstOrDefault(x => x.Name.Equals(ToField, StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(ToField, StringComparison.InvariantCultureIgnoreCase)));
+            if (rf == null)
+            {
+                rf = new Field()
+                {
+                    Table = t,
+                    Builder = group.Builder,
+                    Name = ToField,
+                    Alias = null
+                };
+            }
+
+            FieldCondition condition = new FieldCondition()
+            {
+                Builder = group.Builder,
+                LeftTable = InTable,
+                leftField = lf,
+                RightTable = t,
+                RightField = rf,
+                Condition = Operator,
+                ParentGroup = group,
+                ConditionLink = LinkType
+            };
+            group.Conditions.Add(condition);
+            return group;
+        }
 
         private static ExistsConditionGroup ExistsConditionInternal(ExistsConditionGroup group, string FromField, SqlOperators Operator, string ToField, BoolOperators LinkType)
         {
@@ -397,44 +635,9 @@ namespace TinySql
             {
                 FromTable = group.Builder.Tables.FirstOrDefault(x => x.Name.Equals(group.FromTable) || (x.Alias != null && x.Alias.Equals(group.FromTable)));
             }
+            return ExistsConditionInternal(group, FromTable, FromField, Operator, ToField, LinkType);
 
 
-            Field lf = FromTable.FieldList.FirstOrDefault(x => x.Name.Equals(FromField, StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(FromField, StringComparison.InvariantCultureIgnoreCase)));
-            if (lf == null || group.FromTable == null)
-            {
-                lf = new Field()
-                {
-                    Table = FromTable,
-                    Builder = group.Builder,
-                    Name = FromField,
-                    Alias = null
-                };
-            }
-            Field rf = group.InTable.FieldList.FirstOrDefault(x => x.Name.Equals(ToField, StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(ToField, StringComparison.InvariantCultureIgnoreCase)));
-            if (rf == null)
-            {
-                rf = new Field()
-                {
-                    Table = group.InTable,
-                    Builder = group.Builder,
-                    Name = ToField,
-                    Alias = null
-                };
-            }
-
-            FieldCondition condition = new FieldCondition()
-            {
-                Builder = group.Builder,
-                LeftTable = FromTable,
-                leftField = lf,
-                RightTable = group.InTable,
-                RightField = rf,
-                Condition = Operator,
-                ParentGroup = group,
-                ConditionLink = LinkType
-            };
-            group.Conditions.Add(condition);
-            return group;
         }
 
 
@@ -482,7 +685,20 @@ namespace TinySql
             return (WhereConditionGroup)WhereInternal<T>(table.Builder.WhereConditions, TableName, FieldName, Operator, value);
         }
 
+        public static ExistsConditionGroup WhereExists(this Table table, string InTable)
+        {
+            return ExistsInternal(table.Builder.WhereConditions, InTable, table.Alias, table.Builder.WhereConditions.Conditions.Count > 0 ? BoolOperators.And : BoolOperators.None, false);
+        }
 
+        public static ExistsConditionGroup WhereExists(this Table table, Table InTable)
+        {
+            return ExistsInternal(table.Builder.WhereConditions, InTable.Alias, table.Alias, table.Builder.WhereConditions.Conditions.Count > 0 ? BoolOperators.And : BoolOperators.None, false);
+        }
+
+        public static ExistsConditionGroup WhereNotExists(this Table table, string InTable)
+        {
+            return ExistsInternal(table.Builder.WhereConditions, InTable, table.Alias, table.Builder.WhereConditions.Conditions.Count > 0 ? BoolOperators.And : BoolOperators.None, true);
+        }
 
         public static ExistsConditionGroup AndExists(this WhereConditionGroup group, string InTable, string FromTable = null)
         {
@@ -516,6 +732,7 @@ namespace TinySql
                 FromTable = FromTable
             };
             group.SubConditions.Add(exists);
+
             return exists;
         }
 
@@ -599,6 +816,10 @@ namespace TinySql
                 leftField = fv
             };
             group.Conditions.Add(fc);
+            if (group.SubConditions.Count > 0)
+            {
+                group.SubConditions.First().ConditionLink = (group.SubConditions.First().ConditionLink == BoolOperators.None ? group.SubConditions.First().ConditionLink = BoolOperators.And : group.SubConditions.First().ConditionLink);
+            }
             return group;
         }
 
@@ -612,11 +833,11 @@ namespace TinySql
             {
                 throw new InvalidOperationException(string.Format("The WHERE condition table '{0}' does not exist", TableName));
             }
+            Field f = t.FindField(FieldName);
             ValueField<T> fv = new ValueField<T>()
             {
                 Table = t,
-
-                Name = FieldName,
+                Name = f != null ? f.Name : FieldName,
                 Builder = group.Builder,
                 FieldValue = value
 
@@ -631,9 +852,30 @@ namespace TinySql
                 leftField = fv
             };
             group.Conditions.Add(fc);
+            if (group.SubConditions.Count > 0)
+            {
+                group.SubConditions.First().ConditionLink = (group.SubConditions.First().ConditionLink == BoolOperators.None ? group.SubConditions.First().ConditionLink = BoolOperators.And : group.SubConditions.First().ConditionLink);
+            }
             return group;
         }
 
+        internal static JoinConditionGroup OnInternal(JoinConditionGroup group, Field FromField, SqlOperators Operator, Field ToField, BoolOperators LinkType = BoolOperators.None)
+        {
+            Join join = group.Join;
+            FieldCondition condition = new FieldCondition()
+            {
+                Builder = join.Builder,
+                LeftTable = join.FromTable,
+                leftField = FromField,
+                RightTable = join.ToTable,
+                RightField = ToField,
+                Condition = Operator,
+                ParentGroup = group,
+                ConditionLink = LinkType
+            };
+            group.Conditions.Add(condition);
+            return group;
+        }
 
         private static JoinConditionGroup OnInternal(JoinConditionGroup group, string FromField, SqlOperators Operator, string ToField, BoolOperators LinkType = BoolOperators.None)
         {
@@ -660,21 +902,7 @@ namespace TinySql
                     Alias = null
                 };
             }
-
-            FieldCondition condition = new FieldCondition()
-            {
-                Builder = join.Builder,
-                LeftTable = join.FromTable,
-                leftField = lf,
-                RightTable = join.ToTable,
-                RightField = rf,
-                Condition = Operator,
-                ParentGroup = group,
-                ConditionLink = LinkType
-            };
-            group.Conditions.Add(condition);
-            return group;
-
+            return OnInternal(group, lf, Operator, rf, LinkType);
         }
 
         #endregion

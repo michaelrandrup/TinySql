@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using TinySql;
+using TinySql.Metadata;
 
 namespace UnitTests
 {
@@ -40,21 +41,36 @@ namespace UnitTests
         }
         public static string Stop(Guid g, WatchTypes WatchType = WatchTypes.Milliseconds, string Format = "{0}")
         {
+            return GetWatch(g, true, WatchType, Format);
+        }
+
+        private static string GetWatch(Guid g, bool RemoveWatch, WatchTypes WatchType = WatchTypes.Milliseconds,string Format = "{0}")
+        {
             DateTime dt = DateTime.Now;
             DateTime st = Watches[g];
-            Watches.Remove(g);
+            if (RemoveWatch)
+            {
+                Watches.Remove(g);
+            }
             double d = (dt - st).TotalMilliseconds;
             switch (WatchType)
             {
                 case WatchTypes.Seconds:
-                    d = (dt - st).Seconds;
+                    d = (dt - st).TotalSeconds;
                     break;
                 case WatchTypes.Minues:
-                    d =  (dt - st).Minutes;
+                    d = (dt - st).TotalMinutes;
                     break;
             }
             return string.Format(Format, d);
         }
+
+        public static string Split(Guid g, WatchTypes WatchType = WatchTypes.Milliseconds, string Format = "{0}")
+        {
+            return GetWatch(g, false, WatchType, Format);
+        }
+
+
     }
     public static class SetupData
     {
@@ -72,8 +88,25 @@ namespace UnitTests
 
 
             string dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            SqlBuilder.DefaultConnection = string.Format("Server=(localdb)\\ProjectsV12;Database=AdventureWorks2014;Trusted_Connection=Yes", dir);
+            SqlBuilder.DefaultConnection = string.Format("Server=(localdb)\\ProjectsV12;Database=TinyCrm;Trusted_Connection=Yes", dir);
             return true;
         }
+
+        private static string _MetadataFileName = Path.Combine(Path.GetTempPath(), "TinyCrm_Metadata.json");
+        public static string MetadataFileName
+        {
+            get
+            {
+                if (!File.Exists(_MetadataFileName))
+                {
+                    MetadataDatabase mdb = SqlMetadataDatabase.FromConnection(SqlBuilder.DefaultConnection, true).BuildMetadata();
+                    Serialization.ToFile(_MetadataFileName, mdb);
+                }
+                return _MetadataFileName;
+            }
+        }
+
+
+
     }
 }

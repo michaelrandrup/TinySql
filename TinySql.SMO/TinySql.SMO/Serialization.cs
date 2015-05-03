@@ -15,10 +15,39 @@ namespace TinySql.Metadata
             {
                 return new Newtonsoft.Json.JsonSerializerSettings()
                     {
-                        PreserveReferencesHandling = Newtonsoft.Json.PreserveReferencesHandling.All
+                        PreserveReferencesHandling = Newtonsoft.Json.PreserveReferencesHandling.Objects,
+                         ReferenceLoopHandling = ReferenceLoopHandling.Serialize,
+
+                         
+
                     };
             }
         }
+
+        public static T FromJson<T>(string json)
+        {
+            using (StringReader sr = new StringReader(json))
+            using (JsonTextReader jr = new JsonTextReader(sr))
+            {
+                JsonSerializer serializer = JsonSerializer.Create(settings);
+                return serializer.Deserialize<T>(jr);
+            }
+        }
+
+        public static string ToJson<T>(T Object, bool FormatOutput = false)
+        {
+            StringBuilder sb = new StringBuilder();
+            using (StringWriter sw = new StringWriter(sb))
+            using (JsonWriter jw = new JsonTextWriter(sw))
+            {
+                jw.Formatting = FormatOutput ? Formatting.Indented : Formatting.None; 
+                JsonSerializer serializer = JsonSerializer.Create(settings);
+                serializer.Serialize(jw, Object);
+                sw.Flush();
+            }
+            return sb.ToString();
+        }
+
         public static void ToFile(string FileName, MetadataDatabase Metadata)
         {
 

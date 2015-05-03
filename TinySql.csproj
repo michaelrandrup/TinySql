@@ -54,6 +54,8 @@
   <ItemGroup>
     <Compile Include="Data.cs" />
     <Compile Include="MetadataClasses.cs" />
+    <Compile Include="MetadataExtensions.cs" />
+    <Compile Include="ResultExtensions.cs" />
     <Compile Include="SqlBuilder.cs" />
     <Compile Include="SqlStatementExtensions.cs" />
     <Compile Include="Classes.cs" />

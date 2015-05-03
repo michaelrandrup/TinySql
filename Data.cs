@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Text;
 using System.Transactions;
 using System.Xml;
+using TinySql.Metadata;
 
 namespace TinySql
 {
@@ -16,7 +17,13 @@ namespace TinySql
         
         public static ResultTable Execute(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, params object[] Format)
         {
-            return new ResultTable(DataTable(Builder, ConnectionString, TimeoutSeconds, Format));
+            MetadataTable mt = null;
+            if (Builder.Metadata != null && Builder.Tables.Count > 0)
+            {
+                Table t = Builder.Tables.First();
+                mt = Builder.Metadata[!string.IsNullOrEmpty(t.Schema) ? t.FullName : "dbo." + t.Name];
+            }
+            return new ResultTable(mt,DataTable(Builder, ConnectionString, TimeoutSeconds, Format));
         }
 
         public static DataTable DataTable(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, params object[] Format)
@@ -174,6 +181,23 @@ namespace TinySql
             }
             return list;
         }
+
+        public static S List<T, S>(this SqlBuilder Builder, DataTable dataTable, bool AllowPrivateProperties, bool EnforceTypesafety)
+        {
+            ICollection<T> list = Activator.CreateInstance<S>() as ICollection<T>;
+            foreach (DataRow row in dataTable.Rows)
+            {
+                list.Add(TypeBuilder.PopulateObject<T>(dataTable, row, AllowPrivateProperties, EnforceTypesafety));
+            }
+            return (S)list;
+        }
+
+        public static S List<T, S>(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
+        {
+            DataTable dt = DataTable(Builder, ConnectionString, TimeoutSeconds, Format);
+            return List<T, S>(Builder, dt, AllowPrivateProperties, EnforceTypesafety);
+        }
+
 
         public static List<T> List<T>(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
         {
