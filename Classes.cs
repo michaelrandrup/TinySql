@@ -48,10 +48,110 @@ namespace TinySql
         {
             Initialize(dt);
         }
+
+        public ResultTable(SqlBuilder builder, int TimeoutSeconds = 60, params object[] Format)
+        {
+            DataSet ds = builder.DataSet(builder.ConnectionString, TimeoutSeconds, Format);
+            this.Metadata = GetMetadataTable(builder.Metadata, builder.BaseTable().FullName);
+            Initialize(ds.Tables[0]);
+            ResultTable Current = this;
+            int CurrentTable = 0;
+            foreach (var kv in builder.SubQueries)
+            {
+                CurrentTable++;
+                DataTable dt = ds.Tables[CurrentTable];
+                List<DataColumn> pk = new List<DataColumn>();
+                //foreach (MetadataColumn Column in this.Metadata.PrimaryKey.Columns)
+                //{
+                //    DataColumn col = dt.Columns[Column.Name];
+                //    pk.Add(dt.Columns[Column.Name]);
+                //}
+                //dt.PrimaryKey = pk.ToArray();
+                foreach (RowData rd in this)
+                {
+                    // DataView dv = new DataView(dt);
+                    DataView dv = dt.DefaultView;
+                    List<object> _pk = new List<object>();
+                    string Sort = "";
+                    foreach (MetadataColumn Column in this.Metadata.PrimaryKey.Columns)
+                    {
+                        _pk.Add(rd.Column(Column.Name));
+                        Sort += (!string.IsNullOrEmpty(Sort) ? ", " : "") + Column.Name + " ASC";
+                    }
+                    dv.Sort = Sort;
+                    DataRowView[] filteredRows = dv.FindRows(_pk.ToArray());
+                    SubTable(rd, kv.Value, filteredRows, ds, CurrentTable, this.Metadata.Name);
+                }
+
+            }
+        }
+
+        private MetadataTable GetMetadataTable(MetadataDatabase mdb, string TableName)
+        {
+            if (mdb != null)
+            {
+                TableName = TableName.IndexOf('.') > 0 ? TableName : "dbo." + TableName;
+                return mdb[TableName];
+            }
+            return null;
+        }
+        private void SubTable(RowData Parent, SqlBuilder builder, DataRowView[] rows, DataSet ds, int CurrentTable, string key)
+        {
+            ResultTable rt = new ResultTable();
+            rt.Metadata = GetMetadataTable(builder.Metadata, builder.BaseTable().FullName);
+
+
+            string PropName = builder.BuilderName ?? rt.Metadata.Name + "List";
+            //if (!PropName.EndsWith("List"))
+            //{
+            //    PropName += "List";
+            //}
+            PropName = PropName.Replace(".", "").Replace(" ", "").Replace("-", "");
+
+            rt.Initialize(rows, ds.Tables[CurrentTable]);
+            if (!Parent.Column<ResultTable>(PropName, rt))
+            {
+                throw new InvalidOperationException("Unable to set the child Resulttable " + PropName);
+            }
+            foreach (var kv in builder.SubQueries)
+            {
+                CurrentTable++;
+                DataTable dt = ds.Tables[CurrentTable];
+                List<DataColumn> pk = new List<DataColumn>();
+                foreach (RowData rd in rt)
+                {
+                    DataView dv = new DataView(dt);
+                    List<object> _pk = new List<object>();
+                    string Sort = "";
+                    foreach (MetadataColumn Column in rt.Metadata.PrimaryKey.Columns)
+                    {
+                        _pk.Add(rd.Column(Column.Name));
+                        Sort += (!string.IsNullOrEmpty(Sort) ? ", " : "") + Column.Name + " ASC";
+                    }
+                    dv.Sort = Sort;
+                    DataRowView[] filteredRows = dv.FindRows(_pk.ToArray());
+                    SubTable(rd, kv.Value, filteredRows, ds, CurrentTable, rt.Metadata.Name);
+                }
+            }
+
+
+
+
+        }
+
+
         public ResultTable(MetadataTable mt, DataTable dt)
         {
             this.Metadata = mt;
             Initialize(dt);
+        }
+
+        private void Initialize(DataRowView[] rows, DataTable dt)
+        {
+            foreach (DataRowView row in rows)
+            {
+                _Results.Add(new RowData(this, row.Row, dt.Columns));
+            }
         }
 
         private void Initialize(DataTable dt)
@@ -209,6 +309,7 @@ namespace TinySql
                 return InternalParent;
             }
         }
+
 
         public WhereConditionGroup PrimaryKey(SqlBuilder builder)
         {
@@ -421,8 +522,79 @@ namespace TinySql
         }
     }
 
+    public class IfStatement : SqlBuilder
+    {
+        public IfStatement()
+        {
+            StatementBody = new SqlBuilder();
+            BranchStatement = BranchStatements.If;
+            ElseIfStatements = new List<IfStatement>();
+            _Conditions.Builder = this;
+            _Conditions.Parent = this;
+            StatementBody.ParentBuilder = this;
+        }
 
-    
+        private SqlBuilder _Builder = null;
+
+        public SqlBuilder Builder
+        {
+            get { return _Builder; }
+            set
+            {
+                _Builder = value;
+            }
+        }
+
+
+        public SqlBuilder StatementBody { get; set; }
+
+        public BranchStatements BranchStatement { get; set; }
+
+        private IfElseConditionGroup _Conditions = new IfElseConditionGroup();
+
+        public IfElseConditionGroup Conditions
+        {
+            get { return _Conditions; }
+            set { _Conditions = value; }
+        }
+
+        public List<IfStatement> ElseIfStatements { get; set; }
+
+        public override Table BaseTable()
+        {
+            return this.StatementBody.BaseTable();
+        }
+        public override string ToSql()
+        {
+            StringBuilder sql = new StringBuilder();
+            if (BranchStatement == BranchStatements.Else)
+            {
+                sql.AppendFormat("ELSE\r\nBEGIN\r\n");
+            }
+            else
+            {
+                sql.AppendFormat("{0} {1}\r\n", BranchStatement == BranchStatements.ElseIf ? "ELSE IF " : BranchStatement.ToString().ToUpper() + " ", _Conditions.ToSql());
+                sql.AppendLine("BEGIN");
+            }
+
+            sql.AppendFormat("{0}\r\n", StatementBody.ToSql());
+            sql.AppendLine("END");
+            foreach (IfStatement statement in ElseIfStatements)
+            {
+                sql.AppendLine(statement.ToSql());
+            }
+            return base.ToSql() + "\r\n" + sql.ToString();
+        }
+
+
+
+    }
+
+    public class IfElseConditionGroup : WhereConditionGroup
+    {
+        public IfStatement Parent { get; set; }
+    }
+
 
 
     public class Join
@@ -729,7 +901,7 @@ namespace TinySql
 
 
 
-    public abstract class ValueField : Field
+    public class ValueField : Field
     {
         // public new object Value;
         public Type DataType;
@@ -1169,7 +1341,7 @@ namespace TinySql
         {
             get
             {
-                return "#" + base.ReferenceName;
+                return "#" + Name;
             }
         }
 
@@ -1199,6 +1371,18 @@ namespace TinySql
             set
             {
                 base.Alias = value;
+            }
+        }
+
+        public override string Name
+        {
+            get
+            {
+                return base.Name;
+            }
+            set
+            {
+                base.Name = value;
             }
         }
 

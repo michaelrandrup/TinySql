@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Microsoft.CSharp;
 using TinySql;
 using TinySql.Metadata;
+using System.IO;
 
 namespace UnitTests
 {
@@ -51,6 +52,50 @@ namespace UnitTests
             Console.WriteLine(s);
             
                 
+        }
+
+        [TestMethod]
+        public void SerializeSqlBuilder()
+        {
+            Guid g = StopWatch.Start();
+            SqlBuilder builder = SqlBuilder.Select()
+                .From("Account")
+                .AllColumns()
+                .SubSelect("Contact", "AccountID", "AccountID", null, null, "Contacts")
+                .Columns("ContactID", "Name", "Telephone", "Mobile", "WorkEmail")
+                    .SubSelect("Activity", "ContactID", "ContactID", null, null, "Activities")
+                    .Columns("ActivityID", "Title", "Date", "DurationMinutes")
+                    .InnerJoin("Checkkode").On("ActivityTypeID", SqlOperators.Equal, "CheckID")
+                    .And<decimal>("CheckGroup", SqlOperators.Equal, 5)
+                    .ToTable().Column("BeskrivelseDK", "ActivityType")
+                .Builder.ParentBuilder.From("Contact")
+                .SubSelect("CampaignActivity", "ContactID", "ContactID", null, null)
+                .Columns("CampaignActivityTypeID", "RegisteredOn", "Count")
+                .InnerJoin("Checkkode").On("CampaignActivityTypeID", SqlOperators.Equal, "CheckID")
+                .And<decimal>("CheckGroup", SqlOperators.Equal, 4)
+                .ToTable().Column("BeskrivelseDK", "ActivityType")
+                .Builder();
+
+            string before = builder.ToSql();
+            Console.WriteLine(before);
+            string file = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".json");
+            File.WriteAllText(file, TinySql.Metadata.Serialization.ToJson<SqlBuilder>(builder));
+            Console.WriteLine(string.Format("Results serialized to {0} in {1}ms", file, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds)));
+            
+            FileInfo fi = new FileInfo(file);
+            Console.WriteLine("The File is {0:0.00}MB in size", (double)fi.Length / (double)(1024 * 1024));
+            
+            g = StopWatch.Start();
+            builder = TinySql.Metadata.Serialization.FromJson<SqlBuilder>(File.ReadAllText(file));
+            Console.WriteLine(string.Format("Results deserialized from {0} in {1}ms", file, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds)));
+            string after = builder.ToSql();
+            Console.WriteLine(after);
+            g = StopWatch.Start();
+            ResultTable result = builder.Execute();
+            Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds, "builder executed in {0}ms"));
+            fi.Delete();
+            Assert.IsFalse(File.Exists(file));
+            Assert.AreEqual(before, after, "The SQL is identical");
         }
 
         [TestMethod]

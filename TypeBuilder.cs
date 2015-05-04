@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using System.Xml;
@@ -37,8 +38,34 @@ namespace TinySql
             return builder;
         }
 
+        public static SqlBuilder Update<TModel, TProperty>(this TableHelper<TModel> helper, TModel Instance, Expression<Func<TModel, TProperty>> prop)
+        {
+            return helper.table.Builder;
+        }
+
+        public static void UpdateEx<TModel, TProperty>(this ModelHelper<TModel> helper, Expression<Func<TModel, TProperty>> prop)
+        {
+            TProperty t = prop.Compile().Invoke(helper.Model);
+            
+            
+        }
+
+        public class ModelHelper<TModel>
+        {
+            public TModel Model { get; set; }
+            public ModelHelper(TModel model)
+            {
+                this.Model = model;
+            }
+        }
+
+
+
+
+
         public static SqlBuilder Select<T>(string TableName = null, string[] Properties = null, string[] ExcludeProperties = null, int? Top = null, bool Distinct = false)
         {
+
             return Select(typeof(T), TableName, Properties, ExcludeProperties, Top, Distinct);
         }
 
@@ -132,7 +159,7 @@ namespace TinySql
             }
             return instance;
         }
-        
+
         public static T PopulateObject<T>(DataTable dt, DataRow row, bool AllowPrivateProperties, bool EnforceTypesafety, bool UseDefaultConstructor = true)
         {
             T instance = default(T);

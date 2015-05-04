@@ -17,6 +17,8 @@ namespace TinySql.Metadata
                     {
                         PreserveReferencesHandling = Newtonsoft.Json.PreserveReferencesHandling.Objects,
                          ReferenceLoopHandling = ReferenceLoopHandling.Serialize,
+                          TypeNameAssemblyFormat = System.Runtime.Serialization.Formatters.FormatterAssemblyStyle.Full,
+                           TypeNameHandling = TypeNameHandling.Objects
 
                          
 
@@ -48,9 +50,16 @@ namespace TinySql.Metadata
             return sb.ToString();
         }
 
-        public static void ToFile(string FileName, MetadataDatabase Metadata)
+        public static void ToFile(string FileName, MetadataDatabase Metadata, bool CreateDirectory = true)
         {
 
+            if (CreateDirectory)
+            {
+                if (!Directory.Exists(Path.GetDirectoryName(FileName)))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(FileName));
+                }
+            }
             if (!Path.GetExtension(FileName).ToLower().EndsWith(".json"))
             {
                 FileName += ".json";

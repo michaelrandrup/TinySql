@@ -80,19 +80,34 @@ namespace UnitTests
         /// <returns></returns>
         public static bool Setup()
         {
-            if (SqlBuilder.DefaultConnection != null)
+            if (SqlBuilder.DefaultConnection == null)
             {
-                return true;
+                string dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                SqlBuilder.DefaultConnection = string.Format("Server=(localdb)\\ProjectsV12;Database=TinyCrm;Trusted_Connection=Yes", dir);
             }
+            if (SqlBuilder.DefaultMetadata == null)
+            {
+                if (!File.Exists(_MetadataFileName))
+                {
+                    MetadataDatabase mdb = SqlMetadataDatabase.FromConnection(SqlBuilder.DefaultConnection, true).BuildMetadata();
+                    Serialization.ToFile(_MetadataFileName, mdb);
+                    SqlBuilder.DefaultMetadata = mdb;
+                }
+                else
+                {
+                    SqlBuilder.DefaultMetadata = Serialization.FromFile(_MetadataFileName);
+                }
+            }
+
             // General options for SqlBuilder
 
 
-            string dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            SqlBuilder.DefaultConnection = string.Format("Server=(localdb)\\ProjectsV12;Database=TinyCrm;Trusted_Connection=Yes", dir);
+            //string dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            //SqlBuilder.DefaultConnection = string.Format("Server=(localdb)\\ProjectsV12;Database=TinyCrm;Trusted_Connection=Yes", dir);
             return true;
         }
 
-        private static string _MetadataFileName = Path.Combine(Path.GetTempPath(), "TinyCrm_Metadata.json");
+        private static string _MetadataFileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "TinySql", "TinyCrm.json");
         public static string MetadataFileName
         {
             get
@@ -101,6 +116,7 @@ namespace UnitTests
                 {
                     MetadataDatabase mdb = SqlMetadataDatabase.FromConnection(SqlBuilder.DefaultConnection, true).BuildMetadata();
                     Serialization.ToFile(_MetadataFileName, mdb);
+                    SqlBuilder.DefaultMetadata = mdb;
                 }
                 return _MetadataFileName;
             }

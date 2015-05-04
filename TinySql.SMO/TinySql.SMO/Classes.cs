@@ -35,6 +35,10 @@ namespace TinySql.Metadata
 
         #endregion
 
+        public delegate void MetadataUpdateDelegate(int PercentDone, string Message, DateTime timestamp);
+
+        public event MetadataUpdateDelegate MetadataUpdateEvent;
+
 
         public static SqlMetadataDatabase FromBuilder(SqlBuilder Builder, bool UseCache = true, string FileName = null)
         {
@@ -45,10 +49,23 @@ namespace TinySql.Metadata
             return new SqlMetadataDatabase(ConnectionString, UseCache, FileName);
         }
 
-        public MetadataDatabase BuildMetadata(bool PrimaryKeyIndexOnly = true)
+        private void RaiseUpdateEvent(int PercentDone, string Message)
+        {
+            if (MetadataUpdateEvent == null)
+            {
+                return;
+            }
+            else
+            {
+                MetadataUpdateEvent.Invoke(PercentDone, Message, DateTime.Now);
+            }
+        }
+
+        public MetadataDatabase BuildMetadata(bool PrimaryKeyIndexOnly = true, string[] Tables = null, bool UpdateExisting = false)
         {
             MetadataDatabase mdb = FromCache();
-            if (mdb != null)
+            string[] Changes = null;
+            if (mdb != null && !UpdateExisting)
             {
                 // mdb.Builder = builder;
                 return mdb;
@@ -61,22 +78,75 @@ namespace TinySql.Metadata
             catch (Exception)
             {
             }
-            mdb = new MetadataDatabase()
+
+            if (UpdateExisting)
             {
-                ID = g,
-                Name = SqlDatabase.Name,
-                Server = SqlServer.Name + (!string.IsNullOrEmpty(SqlServer.InstanceName) && SqlServer.Name.IndexOf('\\') == -1 ? "" : ""),
-                Builder = builder
-            };
+                if (mdb == null)
+                {
+                    throw new ArgumentException("Update was specified but the metadata was not found in cache or file", "UpdateExisting");
+                }
+                long v = GetVersion();
+                if (v <= mdb.Version)
+                {
+                    RaiseUpdateEvent(100, "The database is up to date");
+                    return mdb;
+                }
+                else
+                {
+                    Changes = GetChanges(new DateTime(mdb.Version));
+                    RaiseUpdateEvent(0, string.Format("{0} Changed tables identified", Changes.Length));
+                    foreach (string change in Changes)
+                    {
+                        MetadataTable mt = null;
+                        
+                        if (mdb.Tables.TryRemove(change,out mt))
+                        {
+                            RaiseUpdateEvent(0, string.Format("{0} removed from Metadata pending update", change));
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException("Could not remove the table " + change + " pending update");
+                        }
+                    }
+                    mdb.Version = v;
+                }
+
+            }
+            else
+            {
+                mdb = new MetadataDatabase()
+                {
+                    ID = g,
+                    Name = SqlDatabase.Name,
+                    Server = SqlServer.Name + (!string.IsNullOrEmpty(SqlServer.InstanceName) && SqlServer.Name.IndexOf('\\') == -1 ? "" : ""),
+                    Builder = builder,
+                    Version = GetVersion()
+                };
+            }
+
+            double t = 0;
+            double total = Changes != null ? Changes.Length : Tables != null ? Tables.Length : SqlDatabase.Tables.Count; 
             foreach (Microsoft.SqlServer.Management.Smo.Table table in SqlDatabase.Tables)
             {
-                table.Refresh();
-                BuildMetadata(mdb, table);
+                if (Tables == null || Tables.Contains(table.Name))
+                {
+                    if (Changes == null || Changes.Contains(table.Schema + "." + table.Name))
+                    {
+                        table.Refresh();
+                        BuildMetadata(mdb, table);
+                        if (MetadataUpdateEvent != null)
+                        {
+                            t++;
+                            RaiseUpdateEvent(Convert.ToInt32((t / total) * 100), table.Schema + "." + table.Name + " built");
+                        }
+                        if (t == total)
+                        {
+                            break;
+                        }
+                    }
+                }
+
             }
-            //Parallel.ForEach(db.Tables.OfType<Microsoft.SqlServer.Management.Smo.Table>(),
-            //    new ParallelOptions { MaxDegreeOfParallelism = 2 },
-            //    table => BuildMetadata(mdb, table));
-            // builder.Metadata = mdb;
             ToCache(mdb);
             return mdb;
 
@@ -209,6 +279,25 @@ namespace TinySql.Metadata
             return BuildMetadata(mdb, t, PrimaryKeyIndexOnly, SelfJoin);
         }
 
+
+        private string[] GetChanges(DateTime FromDate)
+        {
+            string sql = string.Format(CHANGE_SQL, FromDate.ToString("s"));
+            DataSet ds = SqlDatabase.ExecuteWithResults(sql);
+            List<string> Tables = new List<string>();
+            if (ds.Tables.Count == 1)
+            {
+                foreach (DataRow dr in ds.Tables[0].Rows)
+                {
+                    if (!dr.IsNull(0) && !dr.IsNull(1))
+                    {
+                        Tables.Add(dr.Field<string>(0) + "." + dr.Field<string>(1));
+                    }
+                }
+            }
+            return Tables.ToArray();
+        }
+
         private long GetVersion()
         {
             try
@@ -227,7 +316,8 @@ namespace TinySql.Metadata
             }
         }
 
-        private const string VERSION_SQL = "select MAX(modify_date) from sys.objects where is_ms_shipped = 0";
+        private const string CHANGE_SQL = "select ss.name,so.name from sys.objects so inner join sys.schemas ss on (so.[schema_id] = ss.[schema_id]) where so.is_ms_shipped = 0 AND so.type = N'U' AND so.modify_date > '{0}'";
+        private const string VERSION_SQL = "select MAX(modify_date) from sys.objects where is_ms_shipped = 0 AND type = N'U'";
 
         private bool ToCache(MetadataDatabase mdb)
         {
@@ -495,7 +585,7 @@ namespace TinySql.Metadata
             private set { _UseCache = value; }
         }
 
-        public string FileName { get; private set; }
+        public string FileName { get; set; }
 
 
 

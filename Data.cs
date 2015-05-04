@@ -14,8 +14,8 @@ namespace TinySql
     public static class Data
     {
         #region Execute methods
-        
-        public static ResultTable Execute(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, params object[] Format)
+
+        public static ResultTable Execute(this SqlBuilder Builder, string ConnectionString, int TimeoutSeconds = 30, params object[] Format)
         {
             MetadataTable mt = null;
             if (Builder.Metadata != null && Builder.Tables.Count > 0)
@@ -23,8 +23,15 @@ namespace TinySql
                 Table t = Builder.Tables.First();
                 mt = Builder.Metadata[!string.IsNullOrEmpty(t.Schema) ? t.FullName : "dbo." + t.Name];
             }
-            return new ResultTable(mt,DataTable(Builder, ConnectionString, TimeoutSeconds, Format));
+            return new ResultTable(mt, DataTable(Builder, ConnectionString, TimeoutSeconds, Format));
         }
+
+        public static ResultTable Execute(this SqlBuilder Builder, int TimeoutSeconds = 30, params object[] Format)
+        {
+            return new ResultTable(Builder,TimeoutSeconds,Format);
+        }
+
+        
 
         public static DataTable DataTable(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, params object[] Format)
         {
@@ -192,10 +199,17 @@ namespace TinySql
             return (S)list;
         }
 
+        
+
+
+
         public static S List<T, S>(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
         {
             DataTable dt = DataTable(Builder, ConnectionString, TimeoutSeconds, Format);
+            DataSet ds = DataSet(Builder, ConnectionString, TimeoutSeconds, Format);
             return List<T, S>(Builder, dt, AllowPrivateProperties, EnforceTypesafety);
+
+
         }
 
 
@@ -283,7 +297,7 @@ namespace TinySql
             return builder.DataTable(ConnectionString, TimeoutSeconds, null);
         }
 
-        
+
 
     }
 }

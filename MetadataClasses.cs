@@ -17,9 +17,11 @@ namespace TinySql.Metadata
         public string Server { get; set; }
         public SqlBuilder Builder { get; set; }
 
+        public long Version { get; set; }
+
         public ConcurrentDictionary<string, MetadataTable> Tables = new ConcurrentDictionary<string, MetadataTable>();
-        public ConcurrentDictionary<int, MetadataForeignKey> ForeignKeys = new ConcurrentDictionary<int, MetadataForeignKey>();
-        public ConcurrentDictionary<string, List<int>> InversionKeys = new ConcurrentDictionary<string, List<int>>();
+        // public ConcurrentDictionary<int, MetadataForeignKey> ForeignKeys = new ConcurrentDictionary<int, MetadataForeignKey>();
+        // public ConcurrentDictionary<string, List<int>> InversionKeys = new ConcurrentDictionary<string, List<int>>();
 
 
         public MetadataTable this[string TableName]
@@ -160,11 +162,11 @@ namespace TinySql.Metadata
         {
             this.Add(Value);
             List<int> keys = new List<int>(new int[] { Value.ID });
-            this.Database.InversionKeys.AddOrUpdate(InversionKey, keys, (key, existing) =>
-            {
-                existing.Add(Value.ID);
-                return existing;
-            });
+            //this.Database.InversionKeys.AddOrUpdate(InversionKey, keys, (key, existing) =>
+            //{
+            //    existing.Add(Value.ID);
+            //    return existing;
+            //});
 
         }
 

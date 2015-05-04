@@ -36,7 +36,7 @@ namespace UnitTests
         {
             string NewTitle = Guid.NewGuid().ToString();
             SqlBuilder builder = SqlBuilder.Update()
-                .Table("account")
+                .Table("Account")
                     .Output()
                     .Column("AccountID", System.Data.SqlDbType.Decimal)
                     .Column("Name", System.Data.SqlDbType.VarChar, 50)
@@ -44,7 +44,12 @@ namespace UnitTests
                 .Set<string>("Name", System.Data.SqlDbType.VarChar, NewTitle)
                 .InnerJoin("Systemuser").On("OwningUserID", SqlOperators.Equal, "SystemUserID")
                 .ToTable()
-                .Where<decimal>("SystemUser", "SystemUserID", SqlOperators.Equal, 1)
+                .Where<decimal>("Account", "AccountID", SqlOperators.Equal, 543)
+                .And<decimal>("SystemUser", "SystemUserID", SqlOperators.Equal, 1)
+                
+                //.ToTable()
+                //.Where<decimal>("SystemUser", "SystemUserID", SqlOperators.Equal, 1)
+                
 
                 .Builder;
             Console.WriteLine(builder.ToSql());

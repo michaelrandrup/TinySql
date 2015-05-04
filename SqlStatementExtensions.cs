@@ -17,7 +17,21 @@ namespace TinySql
         #region Support functions
         public static Table FindTable(this SqlBuilder builder, string TableNameOrAlias, string Schema = null)
         {
-            return builder.Tables.FirstOrDefault(x => x.Name.Equals(TableNameOrAlias, StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(TableNameOrAlias, StringComparison.InvariantCultureIgnoreCase)));
+            Table found = builder.Tables.FirstOrDefault(x => x.Name.Equals(TableNameOrAlias, StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(TableNameOrAlias, StringComparison.InvariantCultureIgnoreCase)));
+            if (found != null)
+            {
+                return found;
+            }
+            else if (builder.ParentBuilder != null)
+            {
+                SqlBuilder b = builder.ParentBuilder;
+                while (b != null && found == null)
+                {
+                    found = builder.Tables.FirstOrDefault(x => x.Name.Equals(TableNameOrAlias, StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(TableNameOrAlias, StringComparison.InvariantCultureIgnoreCase)));
+                    b = b.ParentBuilder;
+                }
+            }
+            return found;
         }
 
         public static Field FindField(this Table table, string NameOrAlias)
@@ -39,9 +53,9 @@ namespace TinySql
 
         public static UpdateTable Table(this SqlBuilder builder, string TableName, string Schema = null)
         {
-            if (builder.Tables.Count > 0 && builder.Tables[0] is UpdateTable)
+            if (builder.Tables.Count > 0 && builder.BaseTable() is UpdateTable)
             {
-                return builder.Tables[0] as UpdateTable;
+                return builder.BaseTable() as UpdateTable;
             }
             else
             {
@@ -113,7 +127,7 @@ namespace TinySql
 
         public static UpdateTable UpdateTable(this TableParameterField table)
         {
-            return table.Builder.Tables[0] as UpdateTable;
+            return table.Builder.BaseTable() as UpdateTable;
         }
 
 
@@ -136,16 +150,16 @@ namespace TinySql
 
         public static InsertIntoTable InsertTable(this TableParameterField table)
         {
-            return table.Builder.Tables[0] as InsertIntoTable;
+            return table.Builder.BaseTable() as InsertIntoTable;
         }
 
 
 
         public static InsertIntoTable Into(this SqlBuilder builder, string TableName, string Schema = null)
         {
-            if (builder.Tables.Count > 0 && builder.Tables[0] is InsertIntoTable)
+            if (builder.Tables.Count > 0 && builder.BaseTable() is InsertIntoTable)
             {
-                return builder.Tables[0] as InsertIntoTable;
+                return builder.BaseTable() as InsertIntoTable;
             }
             else
             {
@@ -224,7 +238,7 @@ namespace TinySql
         public static Table From(this SqlBuilder sql, string TableName, string Alias = null, string Schema = null)
         {
             // Table table = sql.Tables.FirstOrDefault(x => x.Name.Equals((Alias ?? TableName), StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(TableName, StringComparison.InvariantCultureIgnoreCase)));
-            Table table = sql.FindTable(Alias ?? TableName);
+            Table table = sql.FindTable(Alias ?? TableName,Schema);
             if (table != null)
             {
                 return table;
@@ -394,13 +408,13 @@ namespace TinySql
 
         #region JOIN conditions
 
-        public static Table SubSelect(this Table table, string TableName, string FromField, string ToField, string Alias = null, string Schema = null)
+        public static Table SubSelect(this Table table, string TableName, string FromField, string ToField, string Alias = null, string Schema = null, string BuilderName = null)
         {
             string key = table.Alias + "." + FromField + ":" + (Alias ?? (Schema != null ? Schema + "." : "") + TableName) + "." + ToField;
             SqlBuilder b;
             if (table.Builder.SubQueries.TryGetValue(key, out b))
             {
-                return b.Tables[0];
+                return b.BaseTable();
             }
             string tmp = System.IO.Path.GetRandomFileName().Replace(".", "");
             TempTable into = table.Builder.SelectIntoTable;
@@ -426,9 +440,9 @@ namespace TinySql
                     .OrderBy(FromField, OrderByDirections.Asc)
                 .Builder;
 
-
+            b.BuilderName = BuilderName;
             table.Builder.AddSubQuery(key, b);
-            return b.Tables[0];
+            return b.BaseTable();
 
         }
 
@@ -907,7 +921,67 @@ namespace TinySql
 
         #endregion
 
+        #region If Statements
 
+        public static SqlBuilder Begin(this ConditionGroup group, SqlBuilder.StatementTypes StatementType)
+        {
+            if (group.Builder is IfStatement)
+            {
+                return Begin((IfStatement)group.Builder, StatementType);
+            }
+            else
+            {
+                throw new ArgumentException("The Begin() Extension can only be used for If statements", "End");
+            }
+        }
+
+        public static SqlBuilder Begin(this IfStatement builder, SqlBuilder.StatementTypes StatementType)
+        {
+            builder.StatementBody.StatementType = StatementType;
+            return builder.StatementBody;
+        }
+        public static IfStatement End(this SqlBuilder builder)
+        {
+            SqlBuilder sb = builder.ParentBuilder;
+            while (sb != null && (!(sb is IfStatement) || (sb as IfStatement).BranchStatement != BranchStatements.If))
+            {
+                sb = sb.ParentBuilder;
+            }
+            if (sb != null)
+            {
+                return (IfStatement)sb;
+            }
+            else
+            {
+                throw new ArgumentException("The End() Extension can only be used for If statements", "End");
+            }
+        }
+
+        public static IfStatement Else(this IfStatement builder)
+        {
+            return BranchInternal(builder, BranchStatements.Else);
+        }
+
+        public static IfStatement ElseIf(this IfStatement builder)
+        {
+            return BranchInternal(builder, BranchStatements.Else);
+        }
+
+        private static IfStatement BranchInternal(IfStatement builder, BranchStatements Branch)
+        {
+            IfStatement statement = new IfStatement()
+            {
+                BranchStatement = Branch,
+                ParentBuilder = builder
+            };
+            builder.ElseIfStatements.Add(statement);
+            return statement;
+        }
+
+        
+
+
+        #endregion
 
     }
 }

@@ -8,19 +8,30 @@ namespace UnitTests
     public class MetadataSelectTests : BaseTest
     {
         [TestMethod]
+        public void TestUpdate()
+        {
+            Account account = new Account() { PostalCode = "1165" };
+            TypeBuilder.ModelHelper<Account> model = new TypeBuilder.ModelHelper<Account>(account);
+            // model.UpdateEx(a => a.PostalCode);
+            model.UpdateEx(a => account.PostalCode);
+            // account.UpdateEx(a => account.PostalCode);
+
+
+        }
+        [TestMethod]
         public void SimpleSelectTop400Accounts()
         {
             Guid g = StopWatch.Start();
             Guid g2 = StopWatch.Start();
             TableHelper<Account> t = new TableHelper<Account>();
-            SqlBuilder builder = SqlBuilder.Select(400).WithMetadata(true,SetupData.MetadataFileName)
+            SqlBuilder builder = SqlBuilder.Select(400).WithMetadata(true, SetupData.MetadataFileName)
                 .From<Account>()
                 .Column(c => c.AccountID)
                 .Column(c => c.Address1)
                 .Column(c => c.Address2)
                 .Column(c => c.Address3)
                 .Column(c => c.PostalCode)
-                .Model.Builder;
+                .Model.Builder();
             Console.WriteLine(builder.ToSql());
             Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds,"Model built in {0}ms"));
             ResultTable result = builder.Execute();
