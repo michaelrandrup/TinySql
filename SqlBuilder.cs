@@ -1,17 +1,10 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Data;
-using System.Data.SqlClient;
-using System.Dynamic;
 using System.Globalization;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.Caching;
 using System.Text;
-using System.Threading.Tasks;
-using System.Transactions;
-using System.Xml;
+using TinySql.Metadata;
 
 namespace TinySql
 {
@@ -50,6 +43,17 @@ namespace TinySql
             };
         }
 
+        public static IfStatement If()
+        {
+            return new IfStatement()
+            {
+                BranchStatement = BranchStatements.If,
+                StatementType = StatementTypes.If
+            };
+
+
+        }
+
         private static string _DefaultConnection = null;
 
         public static string DefaultConnection
@@ -58,11 +62,76 @@ namespace TinySql
             set { _DefaultConnection = value; }
         }
 
-        public string ConnectionString { get; set; }
+        private string _ConnectionString = null;
+
+        public string ConnectionString
+        {
+            get { return _ConnectionString ?? DefaultConnection; }
+            set { _ConnectionString = value; }
+        }
 
         public object[] Format;
 
+        private MetadataDatabase _Metadata = null;
+        public MetadataDatabase Metadata
+        {
+            get { return _Metadata ?? DefaultMetadata; }
+            set { _Metadata = value; }
+        }
 
+        public static MetadataDatabase DefaultMetadata { get; set; }
+
+
+        public TempTable SelectIntoTable { get; set; }
+
+        private ConcurrentDictionary<string, SqlBuilder> _SubQueries = new ConcurrentDictionary<string, SqlBuilder>();
+        public ConcurrentDictionary<string, SqlBuilder> SubQueries
+        {
+            get { return _SubQueries; }
+            set { _SubQueries = value; }
+        }
+        public SqlBuilder AddSubQuery(string Name, SqlBuilder Builder)
+        {
+            Builder.ParentBuilder = this;
+            return _SubQueries.AddOrUpdate(Name, Builder, (k, v) => { return Builder; });
+
+        }
+
+        public SqlBuilder ParentBuilder { get; set; }
+
+        private ConcurrentDictionary<string, string> Declarations = new ConcurrentDictionary<string, string>();
+
+        public SqlBuilder TopBuilder
+        {
+            get
+            {
+                if (this.ParentBuilder == null)
+                {
+                    return this;
+                }
+                SqlBuilder sb = this.ParentBuilder;
+                while (sb.ParentBuilder != null)
+                {
+                    sb = sb.ParentBuilder;
+                }
+                return sb;
+            }
+        }
+
+        private bool AddDeclaration(string DeclarationName, string Body)
+        {
+            return Declarations.TryAdd(DeclarationName, Body);
+        }
+
+        private List<OrderBy> _OrderByClause = new List<OrderBy>();
+
+        public List<OrderBy> OrderByClause
+        {
+            get { return _OrderByClause; }
+            set { _OrderByClause = value; }
+        }
+
+        public string BuilderName { get; set; }
 
         public SqlBuilder()
         {
@@ -116,31 +185,49 @@ namespace TinySql
             return string.Format(ToSql(), Format);
         }
 
-        public string ToSql()
+        public virtual string ToSql()
         {
+            StringBuilder sb = new StringBuilder();
+            string sql = "";
+
             switch (StatementType)
             {
                 case StatementTypes.Select:
-                    return SelectSql();
+                    sql = SelectSql();
+                    break;
                 case StatementTypes.Insert:
-                    return InsertSql();
+                    sql = InsertSql();
+                    break;
                 case StatementTypes.Update:
-                    return UpdateSql();
+                    sql = UpdateSql();
+                    break;
                 case StatementTypes.Delete:
-                    return DeleteSql();
+                    sql = DeleteSql();
+                    break;
                 default:
-                    throw new NotImplementedException();
+                    break;
             }
+
+            // Post SQL
+            if (this.ParentBuilder == null)
+            {
+                // Top level, so write parameter declarations at the top
+                foreach (string par in Declarations.Values)
+                {
+                    sb.AppendLine(par);
+                }
+            }
+            sb.AppendLine(sql);
+
+            return sb.ToString();
         }
 
         private string DeleteSql()
         {
 
             StringBuilder sb = new StringBuilder();
-            Table BaseTable = this.Tables[0];
-
-            sb.AppendFormat("DELETE  {0}\r\n", BaseTable.Alias);
-            sb.AppendFormat("  FROM  {0}\r\n", BaseTable.ReferenceName);
+            sb.AppendFormat("DELETE  {0}\r\n", BaseTable().Alias);
+            sb.AppendFormat("  FROM  {0}\r\n", BaseTable().ReferenceName);
             foreach (Join j in JoinConditions)
             {
                 sb.AppendFormat("{0}\r\n", j.ToSql());
@@ -155,31 +242,30 @@ namespace TinySql
         private string InsertSql()
         {
             StringBuilder sb = new StringBuilder();
-            InsertIntoTable BaseTable = this.Tables[0] as InsertIntoTable;
-            string declare = "";
+            InsertIntoTable BaseTable = this.BaseTable() as InsertIntoTable;
             string set = "";
             string outputSelect = "";
+            SqlBuilder tb = this.TopBuilder;
             foreach (ParameterField field in BaseTable.FieldList)
             {
-                declare += field.DeclareParameter() + "\r\n";
+                tb.AddDeclaration(field.ParameterName, field.DeclareParameter());
                 set += field.SetParameter() + "\r\n";
             }
 
             if (BaseTable.Output != null)
             {
-                declare += BaseTable.Output.DeclareParameter() + "\r\n";
+                tb.AddDeclaration(BaseTable.Output.ParameterName, BaseTable.Output.DeclareParameter());
                 outputSelect += BaseTable.Output.SetParameter() + "\r\n";
 
             }
 
-            sb.AppendLine(declare);
             sb.AppendLine(set);
             sb.AppendFormat(" INSERT  INTO {0}({1})\r\n", BaseTable.Alias, BaseTable.ToSql());
             if (BaseTable.Output != null)
             {
                 sb.AppendFormat("OUTPUT  {0}\r\n", BaseTable.Output.ToSql());
             }
-            sb.AppendFormat("VALUES({0})", BaseTable.FieldParameters());
+            sb.AppendFormat("VALUES({0})\r\n", BaseTable.FieldParameters());
             if (!string.IsNullOrEmpty(outputSelect))
             {
                 sb.AppendLine(outputSelect);
@@ -190,42 +276,106 @@ namespace TinySql
         private string SelectSql()
         {
             StringBuilder sb = new StringBuilder();
-            Table BaseTable = this.Tables[0];
-            string selectList = BaseTable.ToSql();
+            string selectList = BaseTable().ToSql();
             foreach (Table t in Tables.Skip(1))
             {
                 string fields = t.ToSql();
                 selectList += !string.IsNullOrEmpty(fields) ? ", " + fields : "";
             }
+            //
+            // SELECT
+            //
             sb.AppendFormat("SELECT {1} {2}  {0}\r\n", selectList, Distinct ? "DISTINCT" : "", Top.HasValue ? "TOP " + Top.Value.ToString() : "");
-            sb.AppendFormat("  FROM  {0}\r\n", BaseTable.ReferenceName);
+            //
+            // INTO
+            //
+            if (SelectIntoTable != null)
+            {
+                sb.AppendFormat("  INTO  {0}\r\n", SelectIntoTable.ReferenceName);
+            }
+            //
+            // FROM
+            //
+            sb.AppendFormat("  FROM  {0}\r\n", BaseTable().ReferenceName);
+            //
+            // JOINS
+            //
             foreach (Join j in JoinConditions)
             {
                 sb.AppendFormat("{0}\r\n", j.ToSql());
             }
+            //
+            // WHERE
+            //
             string where = WhereConditions.ToSql();
             if (where != "()" && !string.IsNullOrEmpty(where))
             {
                 sb.AppendFormat("WHERE {0}\r\n", where);
             }
+            //
+            // TODO: Group by
+            //
+
+            // ORDER BY
+            if (OrderByClause.Count > 0)
+            {
+                sb.AppendFormat(" ORDER  BY {0}", OrderByClause.First().ToSql());
+                foreach (OrderBy order in OrderByClause.Skip(1))
+                {
+                    sb.AppendFormat(", {0}", order.ToSql());
+                }
+                sb.Append("\r\n");
+            }
+
+
+            //
+            // Post SQL stuff
+            // 
+            if (this.SelectIntoTable != null && this.SelectIntoTable.OutputTable)
+            {
+                sb.AppendFormat("SELECT  {0} FROM {1}\r\n", SelectIntoTable.ToSql(), SelectIntoTable.ReferenceName);
+                if (SelectIntoTable.OrderByClause.Count > 0)
+                {
+                    sb.AppendFormat(" ORDER  BY {0}", SelectIntoTable.OrderByClause.First().ToSql());
+                    foreach (OrderBy order in SelectIntoTable.OrderByClause.Skip(1))
+                    {
+                        sb.AppendFormat(", {0}", order.ToSql());
+                    }
+                    sb.Append("\r\n");
+                }
+            }
+
+            //
+            // Sub Queries
+            //
+            if (_SubQueries.Count > 0)
+            {
+                foreach (SqlBuilder sub in _SubQueries.Values)
+                {
+                    sb.AppendFormat("\r\n-- Sub Query\r\n{0}\r\n", sub.ToSql(Format));
+                }
+            }
+
             return sb.ToString();
         }
 
         private string UpdateSql()
         {
             StringBuilder sb = new StringBuilder();
-            UpdateTable BaseTable = this.Tables[0] as UpdateTable;
+            UpdateTable BaseTable = this.BaseTable() as UpdateTable;
             string declare = "";
             string set = "";
             string outputSelect = "";
+            SqlBuilder tb = this.TopBuilder;
+
             foreach (ParameterField field in BaseTable.FieldList.OfType<ParameterField>())
             {
-                declare += field.DeclareParameter() + "\r\n";
+                tb.AddDeclaration(field.ParameterName, field.DeclareParameter());
                 set += field.SetParameter() + "\r\n";
             }
             if (BaseTable.Output != null)
             {
-                declare += BaseTable.Output.DeclareParameter() + "\r\n";
+                tb.AddDeclaration(BaseTable.Output.ParameterName, BaseTable.Output.DeclareParameter());
                 outputSelect += BaseTable.Output.SetParameter() + "\r\n";
 
             }
@@ -261,7 +411,8 @@ namespace TinySql
             Select = 1,
             Insert = 2,
             Update = 3,
-            Delete = 4
+            Delete = 4,
+            If = 5
         }
 
         private System.Globalization.CultureInfo _Culture = null;
@@ -283,24 +434,28 @@ namespace TinySql
         public List<Table> Tables = new List<Table>();
         public WhereConditionGroup WhereConditions = new WhereConditionGroup();
 
+        public virtual Table BaseTable()
+        {
+            return Tables[0];
+        }
 
 
         public List<Join> JoinConditions = new List<Join>();
         public StatementTypes StatementType
         {
             get;
-            private set;
+            set;
         }
 
         public int? Top
         {
             get;
-            private set;
+            set;
         }
         public bool Distinct
         {
             get;
-            private set;
+            set;
         }
     }
 }

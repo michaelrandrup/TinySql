@@ -61,6 +61,9 @@
     <Compile Include="SqlUpdateTests.cs" />
     <Compile Include="SqlInsertTests.cs" />
     <Compile Include="MetadataTests.cs" />
+    <Compile Include="MetadataSelectTests.cs" />
+    <Compile Include="IfElseTests.cs" />
+    <Compile Include="RowDataTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TinySql.csproj">
@@ -76,6 +79,9 @@
     <None Include="OrderedInsertTests.orderedtest">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="DB\" />
   </ItemGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">

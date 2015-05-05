@@ -4,20 +4,32 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 using System.Transactions;
-using System.Xml;
+using TinySql.Metadata;
 
 namespace TinySql
 {
     public static class Data
     {
         #region Execute methods
-        
-        public static ResultTable Execute(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, params object[] Format)
+
+        public static ResultTable Execute(this SqlBuilder Builder, string ConnectionString, int TimeoutSeconds = 30, params object[] Format)
         {
-            return new ResultTable(DataTable(Builder, ConnectionString, TimeoutSeconds, Format));
+            MetadataTable mt = null;
+            if (Builder.Metadata != null && Builder.Tables.Count > 0)
+            {
+                Table t = Builder.Tables.First();
+                mt = Builder.Metadata[!string.IsNullOrEmpty(t.Schema) ? t.FullName : "dbo." + t.Name];
+            }
+            return new ResultTable(mt, DataTable(Builder, ConnectionString, TimeoutSeconds, Format));
         }
+
+        public static ResultTable Execute(this SqlBuilder Builder, int TimeoutSeconds = 30, bool WithMetadata = true, params object[] Format)
+        {
+            return new ResultTable(Builder,TimeoutSeconds,WithMetadata,Format);
+        }
+
+        
 
         public static DataTable DataTable(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, params object[] Format)
         {
@@ -55,7 +67,7 @@ namespace TinySql
             return dt;
         }
 
-        public static DataSet DataSet(this SqlBuilder Builder, string ConnectionString = null, params object[] Format)
+        public static DataSet DataSet(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 60, params object[] Format)
         {
             ConnectionString = ConnectionString ?? Builder.ConnectionString ?? SqlBuilder.DefaultConnection;
             if (ConnectionString == null)
@@ -66,7 +78,7 @@ namespace TinySql
             using (TransactionScope trans = new TransactionScope(TransactionScopeOption.RequiresNew, new TransactionOptions()
             {
                 IsolationLevel = System.Transactions.IsolationLevel.ReadCommitted,
-                Timeout = TimeSpan.FromMinutes(1)
+                Timeout = TimeSpan.FromSeconds(TimeoutSeconds)
             }))
             {
                 try
@@ -175,6 +187,30 @@ namespace TinySql
             return list;
         }
 
+        public static S List<T, S>(this SqlBuilder Builder, DataTable dataTable, bool AllowPrivateProperties, bool EnforceTypesafety)
+        {
+            ICollection<T> list = Activator.CreateInstance<S>() as ICollection<T>;
+            foreach (DataRow row in dataTable.Rows)
+            {
+                list.Add(TypeBuilder.PopulateObject<T>(dataTable, row, AllowPrivateProperties, EnforceTypesafety));
+            }
+            return (S)list;
+        }
+
+        
+
+
+
+        public static S List<T, S>(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
+        {
+            DataTable dt = DataTable(Builder, ConnectionString, TimeoutSeconds, Format);
+            DataSet ds = DataSet(Builder, ConnectionString, TimeoutSeconds, Format);
+            return List<T, S>(Builder, dt, AllowPrivateProperties, EnforceTypesafety);
+
+
+        }
+
+
         public static List<T> List<T>(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
         {
             DataTable dt = DataTable(Builder, ConnectionString, TimeoutSeconds, Format);
@@ -259,7 +295,7 @@ namespace TinySql
             return builder.DataTable(ConnectionString, TimeoutSeconds, null);
         }
 
-        
+
 
     }
 }
