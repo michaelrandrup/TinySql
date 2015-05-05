@@ -20,7 +20,7 @@ namespace UnitTests
                 .And<decimal>("Account", "AccountID", SqlOperators.Equal, 526)
                 .Begin(SqlBuilder.StatementTypes.Select)
                 .From("Account")
-                .AllColumns()
+                .AllColumns(false)
                 .Where<decimal>("Account", "AccountID", SqlOperators.Equal, 526)
                 .Builder.End();
 

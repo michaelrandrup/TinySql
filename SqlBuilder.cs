@@ -1,19 +1,9 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Data;
-using System.Data.SqlClient;
-using System.Dynamic;
 using System.Globalization;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.Caching;
 using System.Text;
-using System.Threading.Tasks;
-using System.Transactions;
-using System.Xml;
-using System.Xml.Serialization;
 using TinySql.Metadata;
 
 namespace TinySql

@@ -120,7 +120,16 @@ namespace UnitTests
         }
 
 
+        public void InsertWithRelated()
+        {
+            SqlBuilder builder = SqlBuilder.Insert().Into("Account")
+                .Value<string>("Name", System.Data.SqlDbType.VarChar, "Test account", 200)
+                .Builder();
 
+                
+
+
+        }
 
         public void DeleteInsertedAccounts()
         {

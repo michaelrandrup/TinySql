@@ -41,7 +41,7 @@ namespace UnitTests
             Guid g = StopWatch.Start();
             SqlBuilder sb = SqlBuilder.Select(5)
                 .From("Account")
-                .Columns("AccountID","Name","Address1","PostalCode","City")
+                .AllColumns(false)
                 .Builder;
             Console.WriteLine(sb.ToSql());
             ResultTable result = sb.Execute();
@@ -61,17 +61,17 @@ namespace UnitTests
             Guid g = StopWatch.Start();
             SqlBuilder builder = SqlBuilder.Select()
                 .From("Account")
-                .AllColumns()
+                .AllColumns(false)
                 .SubSelect("Contact", "AccountID", "AccountID", null, null, "Contacts")
-                .Columns("ContactID", "Name", "Telephone", "Mobile", "WorkEmail")
+                .AllColumns(false)
                     .SubSelect("Activity", "ContactID", "ContactID", null, null, "Activities")
-                    .Columns("ActivityID", "Title", "Date", "DurationMinutes")
+                    .AllColumns(false)
                     .InnerJoin("Checkkode").On("ActivityTypeID", SqlOperators.Equal, "CheckID")
                     .And<decimal>("CheckGroup", SqlOperators.Equal, 5)
                     .ToTable().Column("BeskrivelseDK", "ActivityType")
                 .Builder.ParentBuilder.From("Contact")
                 .SubSelect("CampaignActivity", "ContactID", "ContactID", null, null)
-                .Columns("CampaignActivityTypeID", "RegisteredOn", "Count")
+                .AllColumns(false)
                 .InnerJoin("Checkkode").On("CampaignActivityTypeID", SqlOperators.Equal, "CheckID")
                 .And<decimal>("CheckGroup", SqlOperators.Equal, 4)
                 .ToTable().Column("BeskrivelseDK", "ActivityType")
@@ -156,9 +156,9 @@ namespace UnitTests
         //    Guid g;
         //    SqlBuilder b1 = SqlBuilder.Select()
         //        .From("Shopper")
-        //        .AllColumns()
+        //        .AllColumns(false)
         //        .InnerJoin("Customer").On("CustomerID", SqlOperators.Equal, "CustomerID")
-        //        .ToTable().AllColumns()
+        //        .ToTable().AllColumns(false)
         //        .Builder;
 
         //    //g = StopWatch.Start();

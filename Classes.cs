@@ -4,14 +4,10 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
 using System.Dynamic;
 using System.Globalization;
 using System.Linq;
-using System.Reflection;
-using System.Runtime.Caching;
 using System.Text;
-using System.Threading.Tasks;
 using System.Transactions;
 using System.Xml;
 using TinySql.Metadata;
@@ -31,10 +27,11 @@ namespace TinySql
             Initialize(dt);
         }
 
-        public ResultTable(SqlBuilder builder, int TimeoutSeconds = 60, params object[] Format)
+        public ResultTable(SqlBuilder builder, int TimeoutSeconds = 60, bool WithMetadata = true, params object[] Format)
         {
             DataSet ds = builder.DataSet(builder.ConnectionString, TimeoutSeconds, Format);
             this.Metadata = GetMetadataTable(builder.Metadata, builder.BaseTable().FullName);
+            this.WithMetadata = WithMetadata;
             Initialize(ds.Tables[0]);
             ResultTable Current = this;
             int CurrentTable = 0;
@@ -62,7 +59,7 @@ namespace TinySql
                     }
                     dv.Sort = Sort;
                     DataRowView[] filteredRows = dv.FindRows(_pk.ToArray());
-                    SubTable(rd, kv.Value, filteredRows, ds, CurrentTable, this.Metadata.Name);
+                    SubTable(rd, kv.Value, filteredRows, ds, CurrentTable, this.Metadata.Name,this.WithMetadata);
                 }
 
             }
@@ -77,9 +74,10 @@ namespace TinySql
             }
             return null;
         }
-        private void SubTable(RowData Parent, SqlBuilder builder, DataRowView[] rows, DataSet ds, int CurrentTable, string key)
+        private void SubTable(RowData Parent, SqlBuilder builder, DataRowView[] rows, DataSet ds, int CurrentTable, string key, bool WithMetadata)
         {
             ResultTable rt = new ResultTable();
+            rt.WithMetadata = WithMetadata;
             rt.Metadata = GetMetadataTable(builder.Metadata, builder.BaseTable().FullName);
 
 
@@ -112,7 +110,7 @@ namespace TinySql
                     }
                     dv.Sort = Sort;
                     DataRowView[] filteredRows = dv.FindRows(_pk.ToArray());
-                    SubTable(rd, kv.Value, filteredRows, ds, CurrentTable, rt.Metadata.Name);
+                    SubTable(rd, kv.Value, filteredRows, ds, CurrentTable, rt.Metadata.Name,WithMetadata);
                 }
             }
 
@@ -152,6 +150,14 @@ namespace TinySql
         {
             get { return _Metadata; }
             set { _Metadata = value; }
+        }
+
+        private bool _WithMetadata = true;
+
+        public bool WithMetadata
+        {
+            get { return _WithMetadata; }
+            set { _WithMetadata = value; }
         }
 
 
@@ -246,19 +252,22 @@ namespace TinySql
                     throw new InvalidOperationException(string.Format("Unable to set the RowData value {0} for Column {1}", o, Col.ColumnName));
                 }
             }
-            if (Parent.Metadata != null)
+            if (Parent.WithMetadata && Parent.Metadata != null)
             {
-                _OriginalValues.TryAdd("__PK", Parent.Metadata.PrimaryKey.Columns);
-                _OriginalValues.TryAdd("__TABLE", Parent.Metadata.Fullname);
-
+                LoadMetadata(Parent.Metadata);
             }
-            // _OriginalValues.TryAdd("__Parent", Parent);
         }
 
 
         public RowData()
         {
 
+        }
+
+        public void LoadMetadata(MetadataTable mt)
+        {
+            _OriginalValues.AddOrUpdate("__PK",mt.PrimaryKey.Columns,(k,v) => {return mt.PrimaryKey.Columns;});
+            _OriginalValues.AddOrUpdate("__TABLE", mt.Fullname, (k, v) => { return mt.Fullname; });
         }
 
         public string Table
@@ -273,22 +282,7 @@ namespace TinySql
             }
         }
 
-        private ResultTable InternalParent
-        {
-            get
-            {
-                if (!_OriginalValues.ContainsKey("__Parent"))
-                {
-                    return null;
-                }
-                else
-                {
-                    return (ResultTable)_OriginalValues["__Parent"];
-                }
-            }
-        }
-
-        private List<MetadataColumn> InternalPK
+       private List<MetadataColumn> InternalPK
         {
             get
             {
@@ -303,14 +297,6 @@ namespace TinySql
             }
         }
 
-        [JsonIgnore]
-        public ResultTable Parent
-        {
-            get
-            {
-                return InternalParent;
-            }
-        }
 
         [JsonIgnore]
         public MetadataTable Metadata
@@ -352,6 +338,7 @@ namespace TinySql
         internal RowData(ConcurrentDictionary<string, dynamic> originalValues, ConcurrentDictionary<string, dynamic> changedValues)
         {
             _OriginalValues = originalValues;
+            _ChangedValues = changedValues;
         }
 
 
@@ -399,6 +386,14 @@ namespace TinySql
         {
             object o = Column(Name);
             return (T)o;
+        }
+
+        public string[] Columns
+        {
+            get
+            {
+                return _OriginalValues.Keys.Where(x => !x.StartsWith("__")).ToArray();
+            }
         }
 
 

@@ -1,8 +1,5 @@
 ﻿using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 using TinySql.Metadata;
 
@@ -19,7 +16,7 @@ namespace TinySql.Serialization
                 {
                     PreserveReferencesHandling = Newtonsoft.Json.PreserveReferencesHandling.Objects,
                     ReferenceLoopHandling = ReferenceLoopHandling.Serialize,
-                    TypeNameAssemblyFormat = System.Runtime.Serialization.Formatters.FormatterAssemblyStyle.Full,
+                    TypeNameAssemblyFormat = System.Runtime.Serialization.Formatters.FormatterAssemblyStyle.Simple,
                     TypeNameHandling = TypeNameHandling.Objects
                 };
             }
@@ -48,6 +45,50 @@ namespace TinySql.Serialization
             }
             return sb.ToString();
         }
+
+        public static void ToFile<T>(T Object, string FileName, bool CreateDirectory = true, bool FormatOutput = false)
+        {
+
+            if (CreateDirectory)
+            {
+                if (!Directory.Exists(Path.GetDirectoryName(FileName)))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(FileName));
+                }
+            }
+            if (!Path.GetExtension(FileName).ToLower().EndsWith(".json"))
+            {
+                FileName += ".json";
+            }
+            using (FileStream fs = File.OpenWrite(FileName))
+            using (StreamWriter sw = new StreamWriter(fs))
+            using (JsonWriter jw = new JsonTextWriter(sw))
+            {
+                jw.Formatting = FormatOutput ? Formatting.Indented : Formatting.None;
+                JsonSerializer serializer = JsonSerializer.Create(settings);
+                serializer.Serialize(jw, Object);
+            }
+        }
+
+        public static T FromFile<T>(string FileName)
+        {
+            Newtonsoft.Json.JsonSerializerSettings settings = new Newtonsoft.Json.JsonSerializerSettings()
+            {
+                PreserveReferencesHandling = Newtonsoft.Json.PreserveReferencesHandling.All
+            };
+            if (!Path.GetExtension(FileName).ToLower().EndsWith(".json"))
+            {
+                FileName += ".json";
+            }
+            using (FileStream fs = File.OpenRead(FileName))
+            using (StreamReader sr = new StreamReader(fs))
+            using (JsonTextReader jr = new JsonTextReader(sr))
+            {
+                JsonSerializer serializer = JsonSerializer.Create(settings);
+                return serializer.Deserialize<T>(jr);
+            }
+        }
+
 
 
         #region Metadata

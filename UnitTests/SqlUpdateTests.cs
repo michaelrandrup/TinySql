@@ -66,7 +66,7 @@ namespace UnitTests
             Guid g = StopWatch.Start();
             SqlBuilder builder = SqlBuilder.Select().WithMetadata(true,SetupData.MetadataFileName)
             .From("Account")
-            .AllColumns()
+            .AllColumns(false)
             .Where<decimal>("Account", "AccountID", SqlOperators.Equal, 526)
             .Builder;
             Console.WriteLine(builder.ToSql());

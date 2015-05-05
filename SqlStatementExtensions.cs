@@ -1,9 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
+using TinySql.Metadata;
 
 namespace TinySql
 {
@@ -212,11 +211,6 @@ namespace TinySql
 
         #region Table
 
-        //public static TempTable OrderBy(this TempTable table, string FieldName, OrderByDirections Directions)
-        //{
-
-        //}
-
         public static SqlBuilder Builder(this Table table)
         {
             SqlBuilder b = table.Builder;
@@ -245,7 +239,6 @@ namespace TinySql
         }
         public static Table From(this SqlBuilder sql, string TableName, string Alias = null, string Schema = null)
         {
-            // Table table = sql.Tables.FirstOrDefault(x => x.Name.Equals((Alias ?? TableName), StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(TableName, StringComparison.InvariantCultureIgnoreCase)));
             Table table = sql.FindTable(Alias ?? TableName,Schema);
             if (table != null)
             {
@@ -339,15 +332,30 @@ namespace TinySql
         #endregion
 
         #region SELECT list
-        public static Table AllColumns(this Table sql)
+        public static Table AllColumns(this Table sql, bool UseWildcardCharacter = true)
         {
-            sql.FieldList.Add(new Field()
+            MetadataDatabase mdb = sql.Builder.Metadata;
+            if (!UseWildcardCharacter && mdb != null)
             {
-                Name = "*",
-                Alias = null,
-                Table = sql,
-                Builder = sql.Builder
-            });
+                MetadataTable mt = mdb[sql.FullName.IndexOf('.') > 0 ? sql.FullName : "dbo." + sql.FullName];
+                foreach (MetadataColumn col in mt.Columns.Values)
+                {
+                    if (sql.FindField(col.Name) == null)
+                    {
+                        sql.Column(col.Name);
+                    }
+                }
+            }
+            else
+            {
+                sql.FieldList.Add(new Field()
+                {
+                    Name = "*",
+                    Alias = null,
+                    Table = sql,
+                    Builder = sql.Builder
+                });
+            }
             return sql;
         }
 
@@ -657,7 +665,7 @@ namespace TinySql
             {
                 FromTable = group.Builder.Tables.FirstOrDefault(x => x.Name.Equals(group.FromTable) || (x.Alias != null && x.Alias.Equals(group.FromTable)));
             }
-            return ExistsConditionInternal(group, FromTable, FromField, Operator, ToField, LinkType);
+            return ExistsConditionInternal(group, group.InTable, FromField, Operator, ToField, LinkType);
 
 
         }

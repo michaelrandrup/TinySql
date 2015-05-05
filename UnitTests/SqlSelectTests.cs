@@ -1,7 +1,6 @@
 ﻿using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using TinySql;
-using System.Xml;
 using System.Linq;
 using System.Collections.Generic;
 using System.IO;
@@ -20,9 +19,9 @@ namespace UnitTests
             Guid g = StopWatch.Start();
             SqlBuilder builder = SqlBuilder.Select()
                 .From("Contact")
-                .AllColumns()
+                .AllColumns(false)
                 .SubSelect("Account", "AccountID", "AccountID", null, null, "Account")
-                .Columns("Name")
+                .AllColumns(false)
                 .ConcatColumns("Address", ", ", "Address1", "PostalCode", "City")
                 .InnerJoin("Contact").On("AccountID", SqlOperators.Equal, "AccountID")
                 .ToTable().Column("ContactID")
@@ -50,17 +49,17 @@ namespace UnitTests
             Guid g = StopWatch.Start();
             SqlBuilder builder = SqlBuilder.Select()
                 .From("Account")
-                .AllColumns()
+                .AllColumns(false)
                 .SubSelect("Contact", "AccountID", "AccountID", null, null, "Contacts")
-                .Columns("ContactID", "Name", "Telephone", "Mobile", "WorkEmail")
+                .AllColumns(false)
                     .SubSelect("Activity", "ContactID", "ContactID", null, null, "Activities")
-                    .Columns("ActivityID", "Title", "Date", "DurationMinutes")
+                    .AllColumns(false)
                     .InnerJoin("Checkkode").On("ActivityTypeID", SqlOperators.Equal, "CheckID")
                     .And<decimal>("CheckGroup", SqlOperators.Equal, 5)
                     .ToTable().Column("BeskrivelseDK", "ActivityType")
                 .Builder.ParentBuilder.From("Contact")
                 .SubSelect("CampaignActivity", "ContactID", "ContactID", null, null)
-                .Columns("CampaignActivityTypeID", "RegisteredOn", "Count")
+                .AllColumns(false)
                 .InnerJoin("Checkkode").On("CampaignActivityTypeID", SqlOperators.Equal, "CheckID")
                 .And<decimal>("CheckGroup", SqlOperators.Equal, 4)
                 .ToTable().Column("BeskrivelseDK", "ActivityType")
@@ -113,10 +112,10 @@ namespace UnitTests
         [TestMethod]
         public void SelectAllColumnsFromOneTable()
         {
-            SqlBuilder builder = SqlBuilder.Select().From("account", null).AllColumns().Builder;
+            SqlBuilder builder = SqlBuilder.Select().From("Account").AllColumns(false).Builder;
             Console.WriteLine(builder.ToSql());
             Guid g = StopWatch.Start();
-            ResultTable result = builder.Execute(null, 120);
+            ResultTable result = builder.Execute();
             Console.WriteLine("ResulTable with {0} rows executed in {1}s", result.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Seconds));
             g = StopWatch.Start();
             List<Account> list = builder.List<Account>(null, 30, true, true);
@@ -156,9 +155,9 @@ namespace UnitTests
             int loops = 80;
             SqlBuilder builder = SqlBuilder.Select()
                 .From("Account")
-                .AllColumns()
+                .AllColumns(false)
                 .SubSelect("Contact", "AccountID", "AccountID", null)
-                .Columns("ContactID", "Name", "Title")
+                .AllColumns(false)
                 .Builder();
             Console.WriteLine(builder.ToSql());
             ResultTable result = builder.Execute();
@@ -179,7 +178,7 @@ namespace UnitTests
             Guid g = StopWatch.Start();
             SqlBuilder builder = SqlBuilder.Select()
                 .From("Account")
-                .AllColumns()
+                .AllColumns(false)
                 .SubSelect("Contact", "AccountID", "AccountID", null)
                 .Columns("ContactID", "Name", "Title")
                 .Builder();
@@ -195,7 +194,7 @@ namespace UnitTests
         {
             SqlBuilder builder = SqlBuilder.Select(100)
                 .From("Account")
-                .AllColumns()
+                .AllColumns(false)
                 .SubSelect("Contact", "AccountID", "AccountID", null)
                 .Columns("ContactID", "Name", "Title")
                 .Builder();
@@ -281,7 +280,7 @@ namespace UnitTests
 
             SqlBuilder builder = SqlBuilder.Select(2000)
                 .From("Account")
-                .AllColumns()
+                .AllColumns(false)
                 .OrderBy("City", OrderByDirections.Desc).OrderBy("Name", OrderByDirections.Asc)
                 .Builder;
             Console.WriteLine(builder.ToSql());
@@ -298,7 +297,7 @@ namespace UnitTests
         [TestMethod]
         public void SelectValueColumnFromOneTable()
         {
-            SqlBuilder builder = SqlBuilder.Select().From("account", null).AllColumns()
+            SqlBuilder builder = SqlBuilder.Select().From("Account", null).AllColumns(false)
                 .Column<int>(22, "Age")
                 .Column<string>(Guid.NewGuid().ToString(), "UniqueID")
                 .Builder;
@@ -316,7 +315,7 @@ namespace UnitTests
         [TestMethod]
         public void SelectFunctionColumnsFromOneTable()
         {
-            SqlBuilder builder = SqlBuilder.Select(20).From("account", null).AllColumns()
+            SqlBuilder builder = SqlBuilder.Select(20).From("Account", null).AllColumns(false)
                 .Fn()
                     .GetDate("Today")
                     .Concat("My Name",
@@ -342,19 +341,19 @@ namespace UnitTests
         [TestMethod]
         public void SelectAllAccountsIntoCustomDictionary()
         {
-            SqlBuilder builder = SqlBuilder.Select().From("account").AllColumns()
+            SqlBuilder builder = SqlBuilder.Select().From("Account").AllColumns(false)
                     .InnerJoin("State", null).On("StateID", SqlOperators.Equal, "StateID")
                     .ToTable()
                     .Column("Description", "State")
-                .From("account")
+                .From("Account")
                     .InnerJoin("Checkkode", null).On("DatasourceID", SqlOperators.Equal, "CheckID")
                     .And<decimal>("CheckGroup", SqlOperators.Equal, 7).ToTable()
                     .Column("BeskrivelseDK", "Datasource")
-            .Builder;
+            .Builder();
             Console.WriteLine(builder.ToSql());
             Guid g = StopWatch.Start();
             MyDictionary result = builder.Dictionary<decimal, Account, MyDictionary>("AccountID");
-            Console.WriteLine("MyDictionary<int, Account> with {0} rows executed in {1}s", result.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Seconds));
+            Console.WriteLine("MyDictionary<int, Account> with {0} rows executed in {1}ms", result.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
             g = StopWatch.Start();
             result = null;
         }
@@ -363,7 +362,7 @@ namespace UnitTests
         public void SelectAccountsWithCustomAliasesIntoResultTable()
         {
 
-            SqlBuilder builder = SqlBuilder.Select().From("account", "a").AllColumns()
+            SqlBuilder builder = SqlBuilder.Select().From("Account", "a").AllColumns(false)
                     .InnerJoin("State", "b").On("StateID", SqlOperators.Equal, "StateID")
                     .ToTable()
                     .Column("Description", "State")

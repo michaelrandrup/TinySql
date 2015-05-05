@@ -4,9 +4,7 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 using System.Transactions;
-using System.Xml;
 using TinySql.Metadata;
 
 namespace TinySql
@@ -26,9 +24,9 @@ namespace TinySql
             return new ResultTable(mt, DataTable(Builder, ConnectionString, TimeoutSeconds, Format));
         }
 
-        public static ResultTable Execute(this SqlBuilder Builder, int TimeoutSeconds = 30, params object[] Format)
+        public static ResultTable Execute(this SqlBuilder Builder, int TimeoutSeconds = 30, bool WithMetadata = true, params object[] Format)
         {
-            return new ResultTable(Builder,TimeoutSeconds,Format);
+            return new ResultTable(Builder,TimeoutSeconds,WithMetadata,Format);
         }
 
         
