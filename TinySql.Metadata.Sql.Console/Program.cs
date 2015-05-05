@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TinySql.Serialization;
 
 namespace TinySql.Metadata.Sql.CommandLine
 {
@@ -59,7 +60,7 @@ namespace TinySql.Metadata.Sql.CommandLine
                 MetadataDatabase mdb = db.BuildMetadata(true, Tables,Update);
                 Console.WriteLine("Done. Metadata contains {0} tables", mdb.Tables.Count);
                 Console.WriteLine("Saving metadata in the file {0}", OutputFile);
-                TinySql.Metadata.Serialization.ToFile(OutputFile, mdb);
+                mdb.ToFile(OutputFile);
                 return 0;
             }
             catch (Exception ex)

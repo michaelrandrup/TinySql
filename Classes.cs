@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -18,26 +19,7 @@ using TinySql.Metadata;
 namespace TinySql
 {
 
-    public class Row
-    {
-        public Row()
-        {
-
-        }
-
-        private string[] PK;
-        private string TableName;
-        public Row(MetadataTable mt)
-        {
-            PK = mt.PrimaryKey.Columns.Select(c => c.Name).ToArray();
-            TableName = mt.Fullname;
-        }
-
-        protected WhereConditionGroup __PK(ConcurrentDictionary<string, dynamic> Columns)
-        {
-            return null;
-        }
-    }
+    
 
     public class ResultTable : IList<RowData>
     {
@@ -165,7 +147,7 @@ namespace TinySql
         public string Name { get; set; }
 
         private MetadataTable _Metadata = null;
-
+        //[JsonIgnore]
         public MetadataTable Metadata
         {
             get { return _Metadata; }
@@ -264,8 +246,13 @@ namespace TinySql
                     throw new InvalidOperationException(string.Format("Unable to set the RowData value {0} for Column {1}", o, Col.ColumnName));
                 }
             }
+            if (Parent.Metadata != null)
+            {
+                _OriginalValues.TryAdd("__PK", Parent.Metadata.PrimaryKey.Columns);
+                _OriginalValues.TryAdd("__TABLE", Parent.Metadata.Fullname);
 
-            _OriginalValues.TryAdd("__Parent", Parent);
+            }
+            // _OriginalValues.TryAdd("__Parent", Parent);
         }
 
 
@@ -278,12 +265,11 @@ namespace TinySql
         {
             get
             {
-                if (!_OriginalValues.ContainsKey("__Parent"))
+                if (!_OriginalValues.ContainsKey("__TABLE"))
                 {
                     return null;
                 }
-                MetadataTable mt = ((ResultTable)_OriginalValues["__Parent"]).Metadata;
-                return mt.Fullname;
+                return Convert.ToString(_OriginalValues["__TABLE"]);
             }
         }
 
@@ -302,6 +288,22 @@ namespace TinySql
             }
         }
 
+        private List<MetadataColumn> InternalPK
+        {
+            get
+            {
+                if (!_OriginalValues.ContainsKey("__PK"))
+                {
+                    return null;
+                }
+                else
+                {
+                    return (List<MetadataColumn>)_OriginalValues["__PK"];
+                }
+            }
+        }
+
+        [JsonIgnore]
         public ResultTable Parent
         {
             get
@@ -310,22 +312,38 @@ namespace TinySql
             }
         }
 
+        [JsonIgnore]
+        public MetadataTable Metadata
+        {
+            get
+            {
+                List<MetadataColumn> pk = InternalPK;
+                if (pk != null)
+                {
+                    return pk.First().Parent;
+                }
+                return null;
+            }
+        }
+
 
         public WhereConditionGroup PrimaryKey(SqlBuilder builder)
         {
-            if (!_OriginalValues.ContainsKey("__Parent"))
+            List<MetadataColumn> columns = InternalPK;
+            string table = Table;
+            if (columns == null || table == null)
             {
                 return null;
             }
-            MetadataTable mt = ((ResultTable)_OriginalValues["__Parent"]).Metadata;
+            
             WhereConditionGroup pk = new WhereConditionGroup();
             pk.Builder = builder;
-            foreach (MetadataColumn c in mt.PrimaryKey.Columns)
+            foreach (MetadataColumn c in columns)
             {
                 object o = null;
                 if (InternalGet(c.Name, out o))
                 {
-                    pk.And(mt.Fullname, c.Name, SqlOperators.Equal, o);
+                    pk.And(table, c.Name, SqlOperators.Equal, o);
                 }
             }
             return pk;

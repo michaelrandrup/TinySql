@@ -4,25 +4,24 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using TinySql.Metadata;
 
-namespace TinySql.Metadata
+namespace TinySql.Serialization
 {
-    public static class Serialization
+    
+    public static class SerializationExtensions
     {
         private static Newtonsoft.Json.JsonSerializerSettings settings
         {
             get
             {
                 return new Newtonsoft.Json.JsonSerializerSettings()
-                    {
-                        PreserveReferencesHandling = Newtonsoft.Json.PreserveReferencesHandling.Objects,
-                         ReferenceLoopHandling = ReferenceLoopHandling.Serialize,
-                          TypeNameAssemblyFormat = System.Runtime.Serialization.Formatters.FormatterAssemblyStyle.Full,
-                           TypeNameHandling = TypeNameHandling.Objects
-
-                         
-
-                    };
+                {
+                    PreserveReferencesHandling = Newtonsoft.Json.PreserveReferencesHandling.Objects,
+                    ReferenceLoopHandling = ReferenceLoopHandling.Serialize,
+                    TypeNameAssemblyFormat = System.Runtime.Serialization.Formatters.FormatterAssemblyStyle.Full,
+                    TypeNameHandling = TypeNameHandling.Objects
+                };
             }
         }
 
@@ -42,7 +41,7 @@ namespace TinySql.Metadata
             using (StringWriter sw = new StringWriter(sb))
             using (JsonWriter jw = new JsonTextWriter(sw))
             {
-                jw.Formatting = FormatOutput ? Formatting.Indented : Formatting.None; 
+                jw.Formatting = FormatOutput ? Formatting.Indented : Formatting.None;
                 JsonSerializer serializer = JsonSerializer.Create(settings);
                 serializer.Serialize(jw, Object);
                 sw.Flush();
@@ -50,7 +49,10 @@ namespace TinySql.Metadata
             return sb.ToString();
         }
 
-        public static void ToFile(string FileName, MetadataDatabase Metadata, bool CreateDirectory = true)
+
+        #region Metadata
+
+        public static void ToFile(this MetadataDatabase Metadata, string FileName, bool CreateDirectory = true)
         {
 
             if (CreateDirectory)
@@ -92,6 +94,9 @@ namespace TinySql.Metadata
             }
         }
 
-       
+        
+
+
+        #endregion
     }
 }

@@ -6,6 +6,7 @@ using Microsoft.CSharp;
 using TinySql;
 using TinySql.Metadata;
 using System.IO;
+using TinySql.Serialization;
 
 namespace UnitTests
 {
@@ -44,10 +45,10 @@ namespace UnitTests
                 .Builder;
             Console.WriteLine(sb.ToSql());
             ResultTable result = sb.Execute();
-            string s = Serialization.ToJson<ResultTable>(result,true);
+            string s = SerializationExtensions.ToJson<ResultTable>(result,true);
             Console.WriteLine("{0} rows executed and serialized  in {1}ms", result.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
             g = StopWatch.Start();
-            result = Serialization.FromJson<ResultTable>(s);
+            result = SerializationExtensions.FromJson<ResultTable>(s);
             Console.WriteLine("{0} rows de-serialized  in {1}ms", result.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
             Console.WriteLine(s);
             
@@ -79,14 +80,14 @@ namespace UnitTests
             string before = builder.ToSql();
             Console.WriteLine(before);
             string file = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".json");
-            File.WriteAllText(file, TinySql.Metadata.Serialization.ToJson<SqlBuilder>(builder));
+            File.WriteAllText(file, TinySql.Serialization.SerializationExtensions.ToJson<SqlBuilder>(builder));
             Console.WriteLine(string.Format("Results serialized to {0} in {1}ms", file, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds)));
             
             FileInfo fi = new FileInfo(file);
             Console.WriteLine("The File is {0:0.00}MB in size", (double)fi.Length / (double)(1024 * 1024));
             
             g = StopWatch.Start();
-            builder = TinySql.Metadata.Serialization.FromJson<SqlBuilder>(File.ReadAllText(file));
+            builder = TinySql.Serialization.SerializationExtensions.FromJson<SqlBuilder>(File.ReadAllText(file));
             Console.WriteLine(string.Format("Results deserialized from {0} in {1}ms", file, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds)));
             string after = builder.ToSql();
             Console.WriteLine(after);
@@ -124,10 +125,10 @@ namespace UnitTests
             Console.WriteLine("Database contains {0} tables and a total of {1} columns", mdb.Tables.Count, mdb.Tables.Values.SelectMany(x => x.Columns).Count());
             string FileName = System.IO.Path.Combine(System.IO.Path.GetTempPath(), System.IO.Path.GetRandomFileName() + ".json");
             g = StopWatch.Start();
-            Serialization.ToFile(FileName, mdb);
+            mdb.ToFile(FileName);
             Console.WriteLine("Metadata persisted as {0} in {1}ms",FileName, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
             g = StopWatch.Start();
-            mdb = Serialization.FromFile(FileName);
+            mdb = SerializationExtensions.FromFile(FileName);
             Console.WriteLine("Metadata read from file '{0}' in {1}ms", FileName, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
         }
 

@@ -22,7 +22,7 @@ namespace TinySql
                 TableName = TableName.Substring(TableName.IndexOf('.') + 1);
             }
             UpdateTable up = builder.Table(TableName,Schema);
-            Metadata.MetadataTable mt = row.Parent.Metadata;
+            Metadata.MetadataTable mt = row.Metadata;
             foreach (string key in row.ChangedValues.Keys)
             {
                 MetadataColumn c = mt[key];

@@ -7,6 +7,7 @@ using Microsoft.SqlServer.Management.Common;
 using Microsoft.SqlServer.Management.Smo;
 using System.Data;
 using System.Runtime.Caching;
+using TinySql.Serialization;
 
 namespace TinySql.Metadata
 {
@@ -341,7 +342,7 @@ namespace TinySql.Metadata
             }
             if (!string.IsNullOrEmpty(FileName))
             {
-                mdb = Serialization.FromFile(FileName);
+                mdb = SerializationExtensions.FromFile(FileName);
                 CacheMetadata(MetadataKey, mdb);
             }
             return mdb;
@@ -361,7 +362,7 @@ namespace TinySql.Metadata
             {
                 return true;
             }
-            CacheItem item = MemoryCache.Default.AddOrGetExisting(new CacheItem(MetadataKey, Serialization.ToJson<MetadataDatabase>(mdb)), (Policy ?? CachePolicy));
+            CacheItem item = MemoryCache.Default.AddOrGetExisting(new CacheItem(MetadataKey, SerializationExtensions.ToJson<MetadataDatabase>(mdb)), (Policy ?? CachePolicy));
             return item.Value == null;
         }
 
@@ -376,7 +377,7 @@ namespace TinySql.Metadata
             CacheItem item = MemoryCache.Default.GetCacheItem(MetadataKey);
             if (item != null)
             {
-                return Serialization.FromJson<MetadataDatabase>(item.Value.ToString());
+                return SerializationExtensions.FromJson<MetadataDatabase>(item.Value.ToString());
             }
             return null;
         }

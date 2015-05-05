@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System.Data;
+using TinySql.Serialization;
 
 namespace UnitTests
 {
@@ -79,12 +80,16 @@ namespace UnitTests
             ResultTable result = ExecuteDeepInternal();
             string file = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".json");
             Guid g = StopWatch.Start();
-            File.WriteAllText(file, TinySql.Metadata.Serialization.ToJson<ResultTable>(result));
+            File.WriteAllText(file, TinySql.Serialization.SerializationExtensions.ToJson<ResultTable>(result));
             Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds, "Results serialized in {0}ms"));
+            g = StopWatch.Start();
+            ResultTable deserialized = SerializationExtensions.FromJson<ResultTable>(File.ReadAllText(file));
+            Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds, "Results deserialized in {0}ms"));
             FileInfo fi = new FileInfo(file);
-            Console.WriteLine("The File is {0:0.00}MB in size", fi.Length / (1024 * 1024));
+            Console.WriteLine("The File is {0:0.00}MB in size", (double)fi.Length / (double)(1024 * 1024));
             fi.Delete();
             Assert.IsFalse(File.Exists(file));
+            Assert.IsTrue(result.Count == deserialized.Count);
         }
 
         [TestMethod]

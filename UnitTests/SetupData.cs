@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Text;
 using TinySql;
 using TinySql.Metadata;
+using TinySql.Serialization;
 
 namespace UnitTests
 {
@@ -93,12 +94,12 @@ namespace UnitTests
                 if (!File.Exists(_MetadataFileName))
                 {
                     MetadataDatabase mdb = SqlMetadataDatabase.FromConnection(SqlBuilder.DefaultConnection, true).BuildMetadata();
-                    Serialization.ToFile(_MetadataFileName, mdb);
+                    mdb.ToFile(_MetadataFileName);
                     SqlBuilder.DefaultMetadata = mdb;
                 }
                 else
                 {
-                    SqlBuilder.DefaultMetadata = Serialization.FromFile(_MetadataFileName);
+                    SqlBuilder.DefaultMetadata = SerializationExtensions.FromFile(_MetadataFileName);
                 }
             }
 
@@ -118,7 +119,7 @@ namespace UnitTests
                 if (!File.Exists(_MetadataFileName))
                 {
                     MetadataDatabase mdb = SqlMetadataDatabase.FromConnection(SqlBuilder.DefaultConnection, true).BuildMetadata();
-                    Serialization.ToFile(_MetadataFileName, mdb);
+                    mdb.ToFile(_MetadataFileName);
                     SqlBuilder.DefaultMetadata = mdb;
                 }
                 return _MetadataFileName;
