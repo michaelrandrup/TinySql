@@ -1,4 +1,4 @@
-# TinySQL 0.1B
+# TinySQL V0.4
 Small and fast object-oriented SQL statement builder
 
 TinySQL is a light-weight object wrapper around the SQL syntax.
