@@ -8,6 +8,7 @@ using Microsoft.SqlServer.Management.Smo;
 using System.Data;
 using System.Runtime.Caching;
 using TinySql.Serialization;
+using System.IO;
 
 namespace TinySql.Metadata
 {
@@ -569,8 +570,13 @@ namespace TinySql.Metadata
             {
                 if (_SqlDatabase == null)
                 {
-                    SqlDatabase = new Database(SqlServer, ConnectionBuilder.InitialCatalog);
-                    SqlDatabase.Refresh();
+                    string db=ConnectionBuilder.InitialCatalog;
+                    if (!string.IsNullOrEmpty(ConnectionBuilder.AttachDBFilename))
+                    {
+                        db = Path.GetFileNameWithoutExtension(ConnectionBuilder.AttachDBFilename);
+                    }
+                    _SqlDatabase = new Database(SqlServer, db);
+                    _SqlDatabase.Refresh();
                 }
                 return _SqlDatabase;
             }

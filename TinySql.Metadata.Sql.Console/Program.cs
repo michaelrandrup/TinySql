@@ -57,6 +57,14 @@ namespace TinySql.Metadata.Sql.CommandLine
                     db.FileName = OutputFile;
                 }
                 db.MetadataUpdateEvent += db_MetadataUpdateEvent;
+                if (Update && !File.Exists(OutputFile))
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("'Update' was specified but the file {0} does not exist. 'Create' will be used in stead", OutputFile);
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Update = false;
+                    db.FileName = null;
+                }
                 MetadataDatabase mdb = db.BuildMetadata(true, Tables,Update);
                 Console.WriteLine("Done. Metadata contains {0} tables", mdb.Tables.Count);
                 Console.WriteLine("Saving metadata in the file {0}", OutputFile);
@@ -72,6 +80,12 @@ namespace TinySql.Metadata.Sql.CommandLine
             finally
             {
                 Console.ForegroundColor = c;
+                if (PromptUser)
+                {
+                    Console.Write("Finished. Press any key to exit");
+                    Console.ReadKey(true);
+                }
+                
             }
 
 
@@ -90,6 +104,7 @@ namespace TinySql.Metadata.Sql.CommandLine
             Console.WriteLine("(required) [connection|con]:\"<sql connection string>\": The connection string to use");
             Console.WriteLine("(optional) [output|out]:\"<path to output file>\": Path to the file where the metadata is json serialized. Specify an existing file to update the file with modified metadata from the database");
             Console.WriteLine("(optional) [tables]:<table1,table2...table n>: Comma separated list of tables to generate metadata for");
+            Console.WriteLine("(optional) [wait] will prompt the user to press a key before closing the Console");
 
         }
 
@@ -99,6 +114,7 @@ namespace TinySql.Metadata.Sql.CommandLine
         private static string ConnectionString = "";
         private static string OutputFile = "";
         private static string[] Tables;
+        private static bool PromptUser = false;
         private enum Commands
         {
             Unknown,
@@ -156,6 +172,10 @@ namespace TinySql.Metadata.Sql.CommandLine
                     else if (cmd[0].Equals("update", StringComparison.OrdinalIgnoreCase))
                     {
                         Command = Commands.UpdateMetadata;
+                    }
+                    else if (cmd[0].Equals("wait", StringComparison.OrdinalIgnoreCase))
+                    {
+                        PromptUser = true;
                     }
                 }
             }

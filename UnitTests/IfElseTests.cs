@@ -17,11 +17,11 @@ namespace UnitTests
             Guid g = StopWatch.Start();
             SqlBuilder builder = SqlBuilder.If()
                 .Conditions.AndExists("Account")
-                .And<decimal>("Account", "AccountID", SqlOperators.Equal, 543)
+                .And<decimal>("Account", "AccountID", SqlOperators.Equal, 526)
                 .Begin(SqlBuilder.StatementTypes.Select)
                 .From("Account")
                 .AllColumns()
-                .Where<decimal>("Account", "AccountID", SqlOperators.Equal, 543)
+                .Where<decimal>("Account", "AccountID", SqlOperators.Equal, 526)
                 .Builder.End();
 
             Console.WriteLine(builder.ToSql());

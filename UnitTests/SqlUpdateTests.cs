@@ -44,8 +44,8 @@ namespace UnitTests
                 .Set<string>("Name", System.Data.SqlDbType.VarChar, NewTitle)
                 .InnerJoin("Systemuser").On("OwningUserID", SqlOperators.Equal, "SystemUserID")
                 .ToTable()
-                .Where<decimal>("Account", "AccountID", SqlOperators.Equal, 543)
-                .And<decimal>("SystemUser", "SystemUserID", SqlOperators.Equal, 1)
+                .Where<decimal>("Account", "AccountID", SqlOperators.Equal, 526)
+                .And<decimal>("SystemUser", "SystemUserID", SqlOperators.Equal, 2)
                 
                 //.ToTable()
                 //.Where<decimal>("SystemUser", "SystemUserID", SqlOperators.Equal, 1)
@@ -67,13 +67,13 @@ namespace UnitTests
             SqlBuilder builder = SqlBuilder.Select().WithMetadata(true,SetupData.MetadataFileName)
             .From("Account")
             .AllColumns()
-            .Where<decimal>("Account", "AccountID", SqlOperators.Equal, 543)
+            .Where<decimal>("Account", "AccountID", SqlOperators.Equal, 526)
             .Builder;
             Console.WriteLine(builder.ToSql());
             ResultTable r = builder.Execute();
             Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds, "1 Account selected in {0}ms"));
             g = StopWatch.Start();
-            Assert.IsTrue(r.Count == 1);
+            Assert.IsTrue(r.Count == 1,"Executed 1 account");
             RowData row = r.First();
             row.Column("Name", Guid.NewGuid().ToString());
             builder = SqlBuilder.Update().Update(row, new string[] { "AccountID", "Name" });
@@ -81,8 +81,8 @@ namespace UnitTests
             r = builder.Execute();
             Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds, "1 Account updated in {0}ms"));
             row.AcceptChanges();
-            Assert.IsTrue(r.First().Column<string>("Name") == row.Column<string>("Name"));
-            Assert.IsFalse(row.HasChanges);
+            Assert.IsTrue(r.First().Column<string>("Name") == row.Column<string>("Name"),"Names are equal");
+            Assert.IsFalse(row.HasChanges,"The row does not have changes");
             
 
 

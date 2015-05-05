@@ -27,7 +27,7 @@ namespace UnitTests
             Watches.AddOrUpdate(g, dt, (k, v) => { return dt; });
             return g;
         }
-        public static double Stop(Guid g,WatchTypes WatchType = WatchTypes.Milliseconds)
+        public static double Stop(Guid g, WatchTypes WatchType = WatchTypes.Milliseconds)
         {
             DateTime dt = DateTime.Now;
             DateTime st = Watches[g];
@@ -47,7 +47,7 @@ namespace UnitTests
             return GetWatch(g, true, WatchType, Format);
         }
 
-        private static string GetWatch(Guid g, bool RemoveWatch, WatchTypes WatchType = WatchTypes.Milliseconds,string Format = "{0}")
+        private static string GetWatch(Guid g, bool RemoveWatch, WatchTypes WatchType = WatchTypes.Milliseconds, string Format = "{0}")
         {
             DateTime dt = DateTime.Now;
             DateTime st = Watches[g];
@@ -86,8 +86,7 @@ namespace UnitTests
         {
             if (SqlBuilder.DefaultConnection == null)
             {
-                string dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-                SqlBuilder.DefaultConnection = string.Format("Server=(localdb)\\ProjectsV12;Database=TinyCrm;Trusted_Connection=Yes", dir);
+                SqlBuilder.DefaultConnection = "Data Source=(localdb)\\ProjectsV12;Initial Catalog=TinyCrm;Integrated Security=True";
             }
             if (SqlBuilder.DefaultMetadata == null)
             {

@@ -82,7 +82,7 @@ namespace UnitTests
         {
             Guid g = StopWatch.Start();
             List<SqlBuilder> Builders = new List<SqlBuilder>();
-
+            InsertOneAccountInternal(false);
             for (int i = 0; i < 1000; i++)
             {
                 string id = DateTime.Now.Ticks.ToString();
@@ -116,6 +116,7 @@ namespace UnitTests
             int result = Builders.ToArray().ExecuteNonQuery();
             Console.WriteLine("{0} Rows affected in {1}ms", result, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
             Assert.IsTrue(result == 1000);
+            DeleteInsertedAccounts();
         }
 
 
