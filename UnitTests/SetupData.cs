@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,19 +18,20 @@ namespace UnitTests
             Seconds,
             Minues
         }
-        private static Dictionary<Guid, DateTime> Watches = new Dictionary<Guid, DateTime>();
+        private static ConcurrentDictionary<Guid, DateTime> Watches = new ConcurrentDictionary<Guid, DateTime>();
         public static Guid Start()
         {
             DateTime dt = DateTime.Now;
             Guid g = Guid.NewGuid();
-            Watches.Add(g, dt);
+            Watches.AddOrUpdate(g, dt, (k, v) => { return dt; });
             return g;
         }
         public static double Stop(Guid g,WatchTypes WatchType = WatchTypes.Milliseconds)
         {
             DateTime dt = DateTime.Now;
             DateTime st = Watches[g];
-            Watches.Remove(g);
+            DateTime r = DateTime.Now;
+            Watches.TryRemove(g, out r);
             switch (WatchType)
             {
                 case WatchTypes.Seconds:
@@ -50,7 +52,8 @@ namespace UnitTests
             DateTime st = Watches[g];
             if (RemoveWatch)
             {
-                Watches.Remove(g);
+                DateTime r = DateTime.Now;
+                Watches.TryRemove(g, out r);
             }
             double d = (dt - st).TotalMilliseconds;
             switch (WatchType)

@@ -98,8 +98,12 @@ namespace TinySql
             return table;
         }
 
-        public static TableParameterField Output(this UpdateTable table, string ParameterName = "output")
+        public static TableParameterField Output(this UpdateTable table, string ParameterName = null)
         {
+            if (ParameterName == null)
+            {
+                ParameterName = "output" + table.Name.Replace(".","");
+            }
             table.Output = new TableParameterField()
             {
                 Name = ParameterName,
@@ -136,8 +140,12 @@ namespace TinySql
 
         #region Insert Statement
 
-        public static TableParameterField Output(this InsertIntoTable table, string ParameterName = "output")
+        public static TableParameterField Output(this InsertIntoTable table, string ParameterName = null)
         {
+            if (ParameterName == null)
+            {
+                ParameterName = "output" + table.Name;
+            }
             table.Output = new TableParameterField()
             {
                 ParameterName = "@" + ParameterName,

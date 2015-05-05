@@ -14,7 +14,14 @@ namespace TinySql
             {
                 return builder;
             }
-            UpdateTable up = builder.Table(row.Table);
+            string TableName = row.Table;
+            string Schema = null;
+            if (TableName.IndexOf('.') > 0)
+            {
+                Schema = TableName.Substring(0, TableName.IndexOf('.'));
+                TableName = TableName.Substring(TableName.IndexOf('.') + 1);
+            }
+            UpdateTable up = builder.Table(TableName,Schema);
             Metadata.MetadataTable mt = row.Parent.Metadata;
             foreach (string key in row.ChangedValues.Keys)
             {

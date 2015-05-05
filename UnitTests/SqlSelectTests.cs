@@ -5,6 +5,8 @@ using System.Xml;
 using System.Linq;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
+using System.Data;
 
 namespace UnitTests
 {
@@ -75,12 +77,12 @@ namespace UnitTests
         public void ExecuteDeepAndSerialize()
         {
             ResultTable result = ExecuteDeepInternal();
-            string file= Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".json");
+            string file = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".json");
             Guid g = StopWatch.Start();
             File.WriteAllText(file, TinySql.Metadata.Serialization.ToJson<ResultTable>(result));
             Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds, "Results serialized in {0}ms"));
             FileInfo fi = new FileInfo(file);
-            Console.WriteLine("The File is {0:0.00}MB in size",fi.Length / (1024*1024));
+            Console.WriteLine("The File is {0:0.00}MB in size", fi.Length / (1024 * 1024));
             fi.Delete();
             Assert.IsFalse(File.Exists(file));
         }
@@ -117,6 +119,71 @@ namespace UnitTests
             list = null;
             result = null;
         }
+
+        [TestMethod]
+        public void SelectContacts()
+        {
+            Guid g = StopWatch.Start();
+            DataTable dt = Data.All<Account>("Account", null, false, null, 30);
+            List<Account> list = Data.All<Account>(null, null, true, null, 30, false, true);
+            Dictionary<decimal, Account> dict = Data.All<decimal, Account>("AccountID");
+            SqlBuilder builder = TypeBuilder.Select<Account>();
+            builder.From("Account").FieldList.Remove(builder.From("Account").FieldList.First(x => x.Name.Equals("State")));
+            builder.From("Account").FieldList.Remove(builder.From("Account").FieldList.First(x => x.Name.Equals("Datasource")));
+            builder
+                .From("Account")
+                .InnerJoin("State").On("StateID", SqlOperators.Equal, "StateID").ToTable()
+                .Column("Description", "State")
+                .From("Account")
+                .InnerJoin("Checkkode").On("DatasourceID", SqlOperators.Equal, "CheckID").And<decimal>("CheckGroup", SqlOperators.Equal, 7)
+                .ToTable()
+                .Column("BeskrivelseDK", "Datasource")
+                .From("Account").OrderBy("Name", OrderByDirections.Asc)
+            .Builder();
+                
+            list = builder.List<Account>();
+            Console.WriteLine("All accounts selected with 5 different methods in {0}ms", StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
+        }
+        [TestMethod]
+        public void ParallelSelectWithSubquery()
+        {
+            Guid g = StopWatch.Start();
+            int loops = 80;
+            SqlBuilder builder = SqlBuilder.Select()
+                .From("Account")
+                .AllColumns()
+                .SubSelect("Contact", "AccountID", "AccountID", null)
+                .Columns("ContactID", "Name", "Title")
+                .Builder();
+            Console.WriteLine(builder.ToSql());
+            ResultTable result = builder.Execute();
+            double one = StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds);
+            int count = result.Count + result.SelectMany(x => x.Column<ResultTable>("ContactList")).Count();
+
+            g = StopWatch.Start();
+            int total = 0;
+            ParallelLoopResult r = Parallel.For(0, loops, new ParallelOptions() { MaxDegreeOfParallelism = 8 }, a => { total += SelectWithSubqueryInternal(); });
+            double twenty = StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds);
+            Console.WriteLine("{2} selects parallel executed with a total of {3} rows in {0:0.00}ms. Estimated {1:0.00}ms", twenty, one * loops, loops, loops * count);
+            Assert.IsTrue(r.IsCompleted);
+
+        }
+
+        private int SelectWithSubqueryInternal()
+        {
+            Guid g = StopWatch.Start();
+            SqlBuilder builder = SqlBuilder.Select()
+                .From("Account")
+                .AllColumns()
+                .SubSelect("Contact", "AccountID", "AccountID", null)
+                .Columns("ContactID", "Name", "Title")
+                .Builder();
+
+            ResultTable result = builder.Execute();
+            Console.WriteLine("{0} rows executed from Thread {1}", result.Count + result.SelectMany(x => x.Column<ResultTable>("ContactList")).Count(), System.Threading.Thread.CurrentThread.ManagedThreadId);
+            return result.Count;
+        }
+
 
         [TestMethod]
         public void SelectWithSubQuery()
