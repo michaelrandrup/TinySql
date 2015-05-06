@@ -107,13 +107,16 @@ namespace TinySql.Metadata
             }
         }
 
-        public IEnumerable<MetadataForeignKey> FindForeignKeys(MetadataColumn Column)
+        public IEnumerable<MetadataForeignKey> FindForeignKeys(MetadataColumn Column, string ReferencedTable = null)
         {
             foreach (MetadataForeignKey FK in this.ForeignKeys.Values)
             {
                 if (FK.ColumnReferences.Select(x => x.Column).Any(x => x.Equals(Column)))
                 {
-                    yield return FK;
+                    if (ReferencedTable == null || FK.ReferencedTable.Equals(ReferencedTable, StringComparison.OrdinalIgnoreCase))
+                    {
+                        yield return FK;
+                    }
                 }
             }
         }

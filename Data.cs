@@ -107,6 +107,7 @@ namespace TinySql
                         context.Open();
                         SqlCommand cmd = new SqlCommand(Builder.ToSql(Format), context);
                         SqlDataAdapter adapter = new SqlDataAdapter(cmd);
+                        adapter.AcceptChangesDuringFill = false;
                         adapter.Fill(ds);
                         context.Close();
                     }

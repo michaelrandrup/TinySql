@@ -299,6 +299,27 @@ namespace TinySql
         private string SelectSql()
         {
             StringBuilder sb = new StringBuilder();
+
+            // Clean select list
+            List<string> clean = new List<string>();
+            int idx = 0;
+            foreach (Field f in Tables.SelectMany(x => x.FieldList))
+            {
+                string s = f.Alias != null ? f.Alias : f.Name;
+                if (!clean.Contains(s))
+                {
+                    clean.Add(s);
+                }
+                else
+                {
+                    f.Alias = f.Table.Name + "_" + f.Name;
+                    clean.Add(f.Alias);
+                    
+                    idx++;
+                }
+            }
+
+
             string selectList = BaseTable().ToSql();
             foreach (Table t in Tables.Skip(1))
             {

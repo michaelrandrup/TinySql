@@ -128,13 +128,20 @@ namespace TinySql
             MetadataDatabase mdb = table.Builder.Metadata;
             if (mdb != null)
             {
-                MetadataTable mt = mdb[GetMetaTableName(table)];
+                MetadataTable mt = mdb.FindTable(table.FullName);
                 if (mt != null)
                 {
                     return new MetadataHelper() { Table = table, Model = mt };
                 }
+                else
+                {
+                    throw new InvalidOperationException(string.Format("The Table '{0}' was not found in metadata", table.FullName));
+                }
             }
-            return null;
+            else
+            {
+                throw new InvalidOperationException("The SqlBuilder does not contain metadata");
+            }
         }
 
         public static SqlBuilder Builder(this MetadataHelper helper)
@@ -142,14 +149,126 @@ namespace TinySql
             return helper.Table.Builder();
         }
 
-        public static MetadataHelper AllColumns(this MetadataHelper helper)
+
+        public static Table InnerJoin(this MetadataHelper helper, string ForeignKeyField)
         {
-            SqlStatementExtensions.AllColumns(helper.Table, helper.Model);
-            return helper;
+            return JoinInternal(helper, ForeignKeyField, Join.JoinTypes.Inner);
         }
 
-        
-        
+        public static Table LeftJoin(this MetadataHelper helper, string ForeignKeyField)
+        {
+            return JoinInternal(helper, ForeignKeyField, Join.JoinTypes.LeftOuter);
+        }
+        public static Table RightJoin(this MetadataHelper helper, string ForeignKeyField)
+        {
+            return JoinInternal(helper, ForeignKeyField, Join.JoinTypes.RightOuter);
+        }
+        public static Table CrossJoin(this MetadataHelper helper, string ForeignKeyField)
+        {
+            return JoinInternal(helper, ForeignKeyField, Join.JoinTypes.Cross);
+        }
+
+        public static Table InnerJoin(this MetadataHelper helper, string ToTable, string ToSchema = null)
+        {
+            return JoinInternal(helper, ToTable, ToSchema == null ? "dbo" : ToSchema, Join.JoinTypes.Inner);
+        }
+
+        public static Table LeftJoin(this MetadataHelper helper, string ToTable, string ToSchema = null)
+        {
+            return JoinInternal(helper, ToTable, ToSchema == null ? "dbo" : ToSchema, Join.JoinTypes.LeftOuter);
+        }
+
+        public static Table RightJoin(this MetadataHelper helper, string ToTable, string ToSchema = null)
+        {
+            return JoinInternal(helper, ToTable, ToSchema == null ? "dbo" : ToSchema, Join.JoinTypes.RightOuter);
+        }
+
+        public static Table CrossJoin(this MetadataHelper helper, string ToTable, string ToSchema = null)
+        {
+            return JoinInternal(helper, ToTable, ToSchema == null ? "dbo" : ToSchema, Join.JoinTypes.Cross);
+        }
+
+        private static Table JoinInternal(MetadataHelper helper, string Totable, string ToSchema, Join.JoinTypes JoinType)
+        {
+            if (helper.Model.PrimaryKey.Columns.Count != 1)
+            {
+                throw new InvalidOperationException("Only tables with one primary key field is supported");
+            }
+            MetadataColumn FromField = helper.Model.PrimaryKey.Columns.First();
+            MetadataTable mt = helper.Table.Builder.Metadata.FindTable(ToSchema + "." + Totable);
+            JoinConditionGroup jcg = To(helper.Table.Builder, helper.Table, helper.Model, FromField, mt, JoinType, false);
+            return jcg.ToTable();
+        }
+
+
+        private static Table JoinInternal(MetadataHelper helper, string ForeignKeyField, Join.JoinTypes JoinType)
+        {
+            MetadataColumn FromField = null;
+            if (!helper.Model.Columns.TryGetValue(ForeignKeyField, out FromField))
+            {
+                throw new ArgumentException("The Field " + ForeignKeyField + " was not found", "FromField");
+            }
+            List<MetadataForeignKey> Fks = new List<MetadataForeignKey>(helper.Model.FindForeignKeys(FromField));
+            if (Fks.Count != 1)
+            {
+                throw new ArgumentException("The Field " + ForeignKeyField + " points to more than one table", "FromField");
+            }
+            string table = Fks.First().ReferencedSchema + "." + Fks.First().ReferencedTable;
+            MetadataTable ToTable = helper.Table.Builder.Metadata.FindTable(table);
+            if (ToTable == null)
+            {
+                throw new InvalidOperationException("The table '" + table + "' was not found in metadata");
+            }
+            JoinConditionGroup jcg = To(helper.Table.Builder, helper.Table, helper.Model, FromField, ToTable, JoinType, true);
+            return jcg.ToTable();
+        }
+
+        private static JoinConditionGroup To(SqlBuilder Builder, Table FromSqlTable, MetadataTable FromTable, MetadataColumn FromField, MetadataTable ToTable, Join.JoinTypes JoinType, bool PreferForeignKeyOverPrimaryKey = true)
+        {
+            MetadataDatabase mdb = Builder.Metadata;
+            List<MetadataForeignKey> Fks = null;
+            MetadataForeignKey FK = null;
+            Join j = null;
+            MetadataColumnReference mcr = null;
+            JoinConditionGroup jcg = null;
+            bool joined = false;
+
+            if (FromField.IsPrimaryKey)
+            {
+                if (!FromField.IsForeignKey || !PreferForeignKeyOverPrimaryKey)
+                {
+                    Fks = ToTable.ForeignKeys.Values.Where(x => x.ReferencedTable.Equals(FromTable.Name) && x.ReferencedSchema.Equals(FromTable.Schema) && x.ColumnReferences.Any(y => y.ReferencedColumn.Equals(FromField))).ToList();
+                    if (Fks.Count != 1)
+                    {
+                        throw new InvalidOperationException(string.Format("The column '{0}' is referenced by {1} keys in the table {2}. Expected 1. Make the join manually",
+                            FromField.Name, Fks.Count, ToTable.Fullname));
+                    }
+                    FK = Fks.First();
+                    j = SqlStatementExtensions.MakeJoin(JoinType, FromSqlTable, ToTable.Name, null, ToTable.Schema.Equals("dbo") ? null : ToTable.Schema);
+
+                    mcr = FK.ColumnReferences.First();
+                    jcg = j.On(FromField.Name, SqlOperators.Equal, mcr.Name);
+                    return jcg;
+                }
+            }
+            if (FromField.IsForeignKey)
+            {
+                Fks = new List<MetadataForeignKey>(FromTable.FindForeignKeys(FromField, ToTable.Name));
+                if (Fks.Count != 1)
+                {
+                    throw new InvalidOperationException(string.Format("The column '{0}' resolves to {1} keys in the table {2}. Expected 1. Make the join manually",
+                            FromField.Name, Fks.Count, ToTable.Fullname));
+                }
+                FK = Fks.First();
+                j = SqlStatementExtensions.MakeJoin(JoinType, FromSqlTable, ToTable.Name, null, ToTable.Schema.Equals("dbo") ? null : ToTable.Schema);
+                mcr = FK.ColumnReferences.First();
+                jcg = j.On(mcr.Name, SqlOperators.Equal, mcr.ReferencedColumn.Name);
+                return jcg;
+            }
+            throw new ArgumentException(string.Format("The Column '{0}' in the table '{1}' must be a foreign key or primary key", FromField.Name, FromTable.Fullname), "FromField");
+        }
+
+
 
 
 

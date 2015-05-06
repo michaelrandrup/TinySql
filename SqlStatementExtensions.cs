@@ -309,7 +309,7 @@ namespace TinySql
                 Builder = table.Builder,
                 Name = TempTable
             };
-            table.Builder.SelectIntoTable.AllColumns();
+            table.Builder.SelectIntoTable.AllColumns(true);
             return table;
         }
 
@@ -403,7 +403,7 @@ namespace TinySql
         }
 
 
-        public static Table AllColumns(this Table sql, bool UseWildcardCharacter = true)
+        public static Table AllColumns(this Table sql, bool UseWildcardCharacter = false)
         {
             MetadataDatabase mdb = sql.Builder.Metadata;
             if (!UseWildcardCharacter && mdb != null)
@@ -1006,11 +1006,10 @@ namespace TinySql
             return true;
         }
 
-        private static JoinConditionGroup OnInternal(JoinConditionGroup group, string FromField, SqlOperators Operator, string ToField, BoolOperators LinkType = BoolOperators.None)
+        internal static JoinConditionGroup OnInternal(JoinConditionGroup group, string FromField, SqlOperators Operator, string ToField, BoolOperators LinkType = BoolOperators.None)
         {
             Join join = group.Join;
             Field lf = join.FromTable.FindField(FromField);
-            // Field lf = join.FromTable.FieldList.FirstOrDefault(x => x.Name.Equals(FromField, StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(FromField, StringComparison.InvariantCultureIgnoreCase)));
             if (lf == null)
             {
                 lf = new Field()

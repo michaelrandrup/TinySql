@@ -257,13 +257,17 @@ namespace TinySql
 
         public RowData(ResultTable Parent, DataRow dr, DataColumnCollection Columns)
         {
+            //_OriginalValues = new ConcurrentDictionary<string, object>(16, Columns.Count);
+            //_ChangedValues = new ConcurrentDictionary<string, object>();
             foreach (DataColumn Col in Columns)
             {
                 object o = dr.IsNull(Col) ? null : dr[Col];
-                if (!_OriginalValues.TryAdd(Col.ColumnName.Replace(" ", "_"), o))
-                {
-                    throw new InvalidOperationException(string.Format("Unable to set the RowData value {0} for Column {1}", o, Col.ColumnName));
-                }
+                string key = Col.ColumnName.Replace(" ", "_");
+                _OriginalValues[key] = o;
+                //if (!_OriginalValues.TryAdd(key, o))
+                //{
+                //    throw new InvalidOperationException(string.Format("Unable to set the RowData value {0} for Column {1}", o, Col.ColumnName));
+                //}
             }
             if (Parent.WithMetadata && Parent.Metadata != null)
             {
@@ -348,21 +352,21 @@ namespace TinySql
             return pk;
         }
 
-        internal RowData(ConcurrentDictionary<string, dynamic> originalValues, ConcurrentDictionary<string, dynamic> changedValues)
+        internal RowData(ConcurrentDictionary<string, object> originalValues, ConcurrentDictionary<string, object> changedValues)
         {
             _OriginalValues = originalValues;
             _ChangedValues = changedValues;
         }
 
 
-        private ConcurrentDictionary<string, dynamic> _OriginalValues = new ConcurrentDictionary<string, dynamic>();
-        public ConcurrentDictionary<string, dynamic> OriginalValues
+        private ConcurrentDictionary<string, object> _OriginalValues = new ConcurrentDictionary<string, object>();
+        public ConcurrentDictionary<string, object> OriginalValues
         {
             get { return _OriginalValues; }
             set { _OriginalValues = value; }
         }
-        private ConcurrentDictionary<string, dynamic> _ChangedValues = new ConcurrentDictionary<string, dynamic>();
-        public ConcurrentDictionary<string, dynamic> ChangedValues
+        private ConcurrentDictionary<string, object> _ChangedValues = new ConcurrentDictionary<string, object>();
+        public ConcurrentDictionary<string, object> ChangedValues
         {
             get { return _ChangedValues; }
             set { _ChangedValues = value; }
@@ -725,7 +729,15 @@ namespace TinySql
 
         public string ToSql()
         {
-            return string.Format("{0} {1} ON {2}", JoinClause(JoinType), ToTable.ReferenceName, Conditions.ToSql());
+            if (JoinType != JoinTypes.Cross)
+            {
+                return string.Format("{0} {1} ON {2}", JoinClause(JoinType), ToTable.ReferenceName, Conditions.ToSql());
+            }
+            else
+            {
+                return string.Format("{0} {1}", JoinClause(JoinType), ToTable.ReferenceName);
+            }
+            
         }
 
     }

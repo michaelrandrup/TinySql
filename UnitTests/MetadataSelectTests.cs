@@ -1,6 +1,8 @@
 ﻿using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using TinySql;
+using TinySql.Serialization;
+using System.Linq;
 
 namespace UnitTests
 {
@@ -8,16 +10,54 @@ namespace UnitTests
     public class MetadataSelectTests : BaseTest
     {
         [TestMethod]
-        public void TestUpdate()
+        public void CrossJoinAccountsAndContactsWithMetadata()
         {
-            Account account = new Account() { PostalCode = "1165" };
-            TypeBuilder.ModelHelper<Account> model = new TypeBuilder.ModelHelper<Account>(account);
-            // model.UpdateEx(a => a.PostalCode);
-            model.UpdateEx(a => account.PostalCode);
-            // account.UpdateEx(a => account.PostalCode);
-
-
+            Guid g = StopWatch.Start();
+            SqlBuilder builder = SqlBuilder.Select(500000)
+                .From("Account")
+                .AllColumns()
+                .WithMetadata().CrossJoin("Contact", null)
+                .AllColumns()
+                .Builder();
+            Console.WriteLine(builder.ToSql());
+            ResultTable result = builder.Execute(30, false);
+            Console.WriteLine("{0} rows selected in {1}ms", result.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
+            Console.WriteLine(SerializationExtensions.ToJson<dynamic>(result.First(), true));
         }
+
+        [TestMethod]
+        public void JoinAccountsAndContactsWithMetadata()
+        {
+            Guid g = StopWatch.Start();
+            SqlBuilder builder = SqlBuilder.Select()
+                .From("Account")
+                .AllColumns()
+                .WithMetadata().InnerJoin("Contact", null)
+                .AllColumns()
+                .Builder();
+            Console.WriteLine(builder.ToSql());
+            ResultTable result = builder.Execute(30, false);
+            Console.WriteLine("{0} rows selected in {1}ms", result.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
+            Console.WriteLine(SerializationExtensions.ToJson<dynamic>(result.First(), true));
+        }
+
+        [TestMethod]
+        public void JoinContactsAndAccountsWithMetadata()
+        {
+            Guid g = StopWatch.Start();
+            SqlBuilder builder = SqlBuilder.Select()
+                .From("Contact")
+                .AllColumns()
+                .WithMetadata().InnerJoin("AccountID")
+                .AllColumns()
+                .Builder();
+
+            Console.WriteLine(builder.ToSql());
+            ResultTable result = builder.Execute(30, false);
+            Console.WriteLine("{0} rows selected in {1}ms", result.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
+            Console.WriteLine(SerializationExtensions.ToJson<dynamic>(result.First(), true));
+        }
+
         [TestMethod]
         public void SimpleSelectTop400Accounts()
         {
@@ -33,7 +73,7 @@ namespace UnitTests
                 .Column(c => c.PostalCode)
                 .Model.Builder();
             Console.WriteLine(builder.ToSql());
-            Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds,"Model built in {0}ms"));
+            Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds, "Model built in {0}ms"));
             ResultTable result = builder.Execute();
             Console.WriteLine("{0} rows executed in {1}ms", result.Count, StopWatch.Stop(g2, StopWatch.WatchTypes.Milliseconds));
             Assert.IsTrue(result.Count == 400);
