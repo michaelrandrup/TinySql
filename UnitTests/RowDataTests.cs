@@ -14,6 +14,35 @@ namespace UnitTests
     public class RowDataTests : BaseTest
     {
         [TestMethod]
+        public void SelectPeopleInMarketingListsWithoutEmail()
+        {
+            
+            List<string> domains = new List<string>() {
+                "@hotmail",
+                "@yahoo",
+                "@live",
+                "@msn",
+                "@outlook",
+                "@mail.tele",
+                "@gmail",
+                "@post"
+            };
+            Guid g = StopWatch.Start();
+            SqlBuilder builder = SqlBuilder.Select()
+                .From("Contact")
+                .AllColumns(false)
+                .WhereExists("ListMember").And("ContactID", SqlOperators.Equal, "ContactID")
+                .EndExists()
+                .And<List<string>>("Contact", "WorkEmail", SqlOperators.In, domains)
+                .Builder();
+            Console.WriteLine(builder.ToSql());
+            ResultTable results = builder.Execute();
+            Console.WriteLine("{0} contacts executed in {1}ms, that are listmembers and have a public domain email address", results.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
+
+                
+        }
+
+        [TestMethod]
         public void SelectAndSerializeDataRows()
         {
             SqlBuilder builder = SqlBuilder.Select(100)

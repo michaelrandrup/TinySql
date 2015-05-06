@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
@@ -47,6 +48,46 @@ namespace TinySql
 
         #endregion
 
+        #region Stored Procedures
+
+        public static StoredProcedure Parameter(this StoredProcedure proc, string Name, SqlDbType SqlDataType, object Value, Type DataType, int MaxLength = -1, int Scale = -1, int Precision = -1, bool IsOutput = false)
+        {
+            proc.Parameters.Add(new ParameterField()
+            {
+                Builder = proc.Builder,
+                Name = Name,
+                ParameterName = "@" + Name,
+                MaxLength = MaxLength,
+                Scale = Scale,
+                Precision = Precision,
+                SqlDataType = SqlDataType,
+                DataType = DataType,
+                Value = Value,
+                IsOutput = IsOutput
+            });
+            return proc;
+        }
+
+        public static SqlBuilder Builder(this StoredProcedure proc)
+        {
+            return proc.Builder.Builder();
+        }
+
+        public static StoredProcedure Parameter<T>(this StoredProcedure proc, string Name, SqlDbType SqlDataType, T Value, int MaxLength = -1, int Scale = -1, int Precision = -1)
+        {
+
+            return Parameter(proc, Name, SqlDataType, Value, typeof(T), MaxLength, Scale, Precision);
+        }
+
+        public static StoredProcedure Output<T>(this StoredProcedure proc, string Name, SqlDbType SqlDataType, int MaxLength = -1, int Scale = -1, int Precision = -1)
+        {
+
+            return Parameter(proc, Name, SqlDataType, null, typeof(T), MaxLength, Scale, Precision, true);
+        }
+
+
+
+        #endregion
 
         #region Update statement
 
@@ -76,7 +117,7 @@ namespace TinySql
                 SqlDataType = SqlDataType,
                 DataType = DataType,
                 Value = Value
-                
+
 
             });
             return table;
@@ -101,7 +142,7 @@ namespace TinySql
         {
             if (ParameterName == null)
             {
-                ParameterName = "output" + table.Name.Replace(".","");
+                ParameterName = "output" + table.Name.Replace(".", "");
             }
             table.Output = new TableParameterField()
             {
@@ -221,6 +262,10 @@ namespace TinySql
             return b;
         }
 
+        public static SqlBuilder Builder(this WhereConditionGroup group)
+        {
+            return group.Builder.Builder();
+        }
         public static SqlBuilder Builder(this SqlBuilder Builder)
         {
             SqlBuilder b = Builder;
@@ -239,7 +284,7 @@ namespace TinySql
         }
         public static Table From(this SqlBuilder sql, string TableName, string Alias = null, string Schema = null)
         {
-            Table table = sql.FindTable(Alias ?? TableName,Schema);
+            Table table = sql.FindTable(Alias ?? TableName, Schema);
             if (table != null)
             {
                 return table;
@@ -332,19 +377,44 @@ namespace TinySql
         #endregion
 
         #region SELECT list
+
+        internal static void AllColumns(Table sql, MetadataTable mt)
+        {
+            foreach (MetadataColumn col in mt.Columns.Values)
+            {
+                Column(sql, col);
+            }
+        }
+
+        internal static void Column(Table sql, MetadataColumn col, string Alias = null)
+        {
+            if (sql.FindField(col.Name) == null)
+            {
+                Field f = new Field()
+                {
+                    Name = col.Name,
+                    Alias = Alias,
+                    Table = sql,
+                    Builder = sql.Builder
+                };
+                col.PopulateField<Field>(f);
+                sql.FieldList.Add(f);
+            }
+        }
+
+
         public static Table AllColumns(this Table sql, bool UseWildcardCharacter = true)
         {
             MetadataDatabase mdb = sql.Builder.Metadata;
             if (!UseWildcardCharacter && mdb != null)
             {
-                MetadataTable mt = mdb[sql.FullName.IndexOf('.') > 0 ? sql.FullName : "dbo." + sql.FullName];
-                foreach (MetadataColumn col in mt.Columns.Values)
+                MetadataTable mt = mdb.FindTable(sql.FullName);
+                if (mt == null)
                 {
-                    if (sql.FindField(col.Name) == null)
-                    {
-                        sql.Column(col.Name);
-                    }
+                    throw new ArgumentException(string.Format("The table {0} cannot be resolved with metadata. Must use wildcard", sql.FullName), "UseWildcardCharacter");
                 }
+                AllColumns(sql, mt);
+                return sql;
             }
             else
             {
@@ -384,30 +454,38 @@ namespace TinySql
             {
                 if (sql.FindField(Fields[i]) == null)
                 {
-                    sql.FieldList.Add(new Field()
-                    {
-                        Name = Fields[i],
-                        Alias = null,
-                        Table = sql,
-                        Builder = sql.Builder
-                    });
+                    Column(sql, Fields[i], null);
                 }
             }
             return sql;
         }
         public static Table Column(this Table sql, string Field, string Alias = null)
         {
-            sql.FieldList.Add(new Field()
+            Field f = new Field()
             {
                 Name = Field,
                 Alias = Alias,
                 Table = sql,
                 Builder = sql.Builder
-            });
+            };
+            MetadataDatabase mdb = sql.Builder.Metadata;
+            if (mdb != null)
+            {
+                MetadataTable mt = mdb.FindTable(sql.FullName);
+                if (mt != null)
+                {
+                    MetadataColumn mc = null;
+                    if (mt.Columns.TryGetValue(Field, out mc))
+                    {
+                        mc.PopulateField<Field>(f);
+                    }
+                }
+            }
+            sql.FieldList.Add(f);
             return sql;
         }
 
-        public static Table Column<T>(this Table table, T Value, string Alias = null)
+        public static Table Column<T>(this Table table, T Value, string Alias)
         {
             table.FieldList.Add(new ValueField<T>()
                 {
@@ -572,10 +650,6 @@ namespace TinySql
             }
             return group;
         }
-
-
-
-
 
         public static ExistsConditionGroup Or(this ExistsConditionGroup group, string FromField, SqlOperators Operator, string ToField)
         {
@@ -907,10 +981,36 @@ namespace TinySql
             return group;
         }
 
+        internal static bool TryPopulateField(this Field f)
+        {
+            if (f.Table == null)
+            {
+                return false;
+            }
+            MetadataDatabase mdb = f.Table.Builder.Metadata;
+            if (mdb == null)
+            {
+                return false;
+            }
+            MetadataTable mt = mdb.FindTable(f.Table.FullName);
+            if (mt == null)
+            {
+                return false;
+            }
+            MetadataColumn mc = null;
+            if (!mt.Columns.TryGetValue(f.Name, out mc))
+            {
+                return false;
+            }
+            mc.PopulateField<Field>(f);
+            return true;
+        }
+
         private static JoinConditionGroup OnInternal(JoinConditionGroup group, string FromField, SqlOperators Operator, string ToField, BoolOperators LinkType = BoolOperators.None)
         {
             Join join = group.Join;
-            Field lf = join.FromTable.FieldList.FirstOrDefault(x => x.Name.Equals(FromField, StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(FromField, StringComparison.InvariantCultureIgnoreCase)));
+            Field lf = join.FromTable.FindField(FromField);
+            // Field lf = join.FromTable.FieldList.FirstOrDefault(x => x.Name.Equals(FromField, StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(FromField, StringComparison.InvariantCultureIgnoreCase)));
             if (lf == null)
             {
                 lf = new Field()
@@ -920,8 +1020,9 @@ namespace TinySql
                     Name = FromField,
                     Alias = null
                 };
+                lf.TryPopulateField();
             }
-            Field rf = join.ToTable.FieldList.FirstOrDefault(x => x.Name.Equals(ToField, StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(ToField, StringComparison.InvariantCultureIgnoreCase)));
+            Field rf = join.ToTable.FindField(ToField);
             if (rf == null)
             {
                 rf = new Field()
@@ -931,6 +1032,7 @@ namespace TinySql
                     Name = ToField,
                     Alias = null
                 };
+                rf.TryPopulateField();
             }
             return OnInternal(group, lf, Operator, rf, LinkType);
         }
@@ -994,7 +1096,7 @@ namespace TinySql
             return statement;
         }
 
-        
+
 
 
         #endregion

@@ -256,7 +256,7 @@ namespace UnitTests
                 .Builder;
             Console.WriteLine(builder.ToSql());
             Guid g = StopWatch.Start();
-            ResultTable result = builder.Execute(null, 120);
+            ResultTable result = builder.Execute(120);
             Console.WriteLine("ResultTable with {0} rows executed in {1}s", result.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
         }
         [TestMethod]
@@ -271,7 +271,7 @@ namespace UnitTests
                 .Builder;
             Console.WriteLine(builder.ToSql());
             Guid g = StopWatch.Start();
-            ResultTable result = builder.Execute(null, 120);
+            ResultTable result = builder.Execute(120);
             Console.WriteLine("ResultTable with {0} rows executed in {1}s", result.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
         }
         [TestMethod]
@@ -285,7 +285,7 @@ namespace UnitTests
                 .Builder;
             Console.WriteLine(builder.ToSql());
             Guid g = StopWatch.Start();
-            ResultTable result = builder.Execute(null, 120);
+            ResultTable result = builder.Execute(120);
             Console.WriteLine("ResulTable with {0} rows executed in {1}ms", result.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
             foreach (dynamic row in result.Take(10))
             {
@@ -303,7 +303,7 @@ namespace UnitTests
                 .Builder;
             Console.WriteLine(builder.ToSql());
             Guid g = StopWatch.Start();
-            ResultTable result = builder.Execute(null, 120);
+            ResultTable result = builder.Execute(120);
             Console.WriteLine("ResulTable with {0} rows executed in {1}s", result.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Seconds));
             g = StopWatch.Start();
             List<Account> list = builder.List<Account>(null, 30, true, true);
@@ -328,7 +328,7 @@ namespace UnitTests
                 .Builder;
             Console.WriteLine(builder.ToSql());
             Guid g = StopWatch.Start();
-            ResultTable result = builder.Execute(null, 120);
+            ResultTable result = builder.Execute(120);
             Console.WriteLine("ResulTable with {0} rows executed in {1}s", result.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Seconds));
             g = StopWatch.Start();
             List<Account> list = builder.List<Account>(null, 30, true, true);

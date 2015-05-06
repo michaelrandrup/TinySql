@@ -107,10 +107,55 @@ namespace TinySql
 
     }
 
+    public class MetadataHelper
+    {
+        internal Table Table { get; set; }
+        internal MetadataTable Model { get; set; }
+    }
+
+
     #endregion
 
     public static class MetadataExtensions
     {
+        internal static string GetMetaTableName(Table t)
+        {
+            string s = t.FullName;
+            return s.Contains('.') ? s : "dbo." + s;
+        }
+        public static MetadataHelper WithMetadata(this Table table)
+        {
+            MetadataDatabase mdb = table.Builder.Metadata;
+            if (mdb != null)
+            {
+                MetadataTable mt = mdb[GetMetaTableName(table)];
+                if (mt != null)
+                {
+                    return new MetadataHelper() { Table = table, Model = mt };
+                }
+            }
+            return null;
+        }
+
+        public static SqlBuilder Builder(this MetadataHelper helper)
+        {
+            return helper.Table.Builder();
+        }
+
+        public static MetadataHelper AllColumns(this MetadataHelper helper)
+        {
+            SqlStatementExtensions.AllColumns(helper.Table, helper.Model);
+            return helper;
+        }
+
+        
+        
+
+
+
+
+
+
 
         public static TableModel<TModel> From<TModel>(this SqlBuilder builder, string Alias = null, string Schema = null)
         {

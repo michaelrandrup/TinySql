@@ -64,6 +64,7 @@
     <Compile Include="MetadataSelectTests.cs" />
     <Compile Include="IfElseTests.cs" />
     <Compile Include="RowDataTests.cs" />
+    <Compile Include="StoredProcedureTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TinySql.csproj">

@@ -19,6 +19,22 @@ namespace TinySql
                 Distinct = Distinct
             };
         }
+        public static StoredProcedure StoredProcedure(string Name, string Schema = null)
+        {
+
+            SqlBuilder builder = new SqlBuilder()
+            {
+                StatementType = StatementTypes.Procedure
+            };
+            builder.Procedure = new StoredProcedure()
+            {
+                Builder = builder,
+                Name = Name,
+                Schema = Schema
+            };
+            return builder.Procedure;
+
+        }
         public static SqlBuilder Insert()
         {
             return new SqlBuilder()
@@ -50,9 +66,9 @@ namespace TinySql
                 BranchStatement = BranchStatements.If,
                 StatementType = StatementTypes.If
             };
-
-
         }
+
+        public StoredProcedure Procedure { get; set; }
 
         private static string _DefaultConnection = null;
 
@@ -75,7 +91,11 @@ namespace TinySql
         private MetadataDatabase _Metadata = null;
         public MetadataDatabase Metadata
         {
-            get { return _Metadata ?? DefaultMetadata; }
+            get
+            {
+                MetadataDatabase mdb = _Metadata ?? this.Builder()._Metadata;
+                return mdb ?? DefaultMetadata;
+            }
             set { _Metadata = value; }
         }
 
@@ -118,7 +138,7 @@ namespace TinySql
             }
         }
 
-        private bool AddDeclaration(string DeclarationName, string Body)
+        internal bool AddDeclaration(string DeclarationName, string Body)
         {
             return Declarations.TryAdd(DeclarationName, Body);
         }
@@ -203,6 +223,9 @@ namespace TinySql
                     break;
                 case StatementTypes.Delete:
                     sql = DeleteSql();
+                    break;
+                case StatementTypes.Procedure:
+                    sql = this.Procedure.ToSql();
                     break;
                 default:
                     break;
@@ -412,7 +435,8 @@ namespace TinySql
             Insert = 2,
             Update = 3,
             Delete = 4,
-            If = 5
+            If = 5,
+            Procedure = 6
         }
 
         private System.Globalization.CultureInfo _Culture = null;
@@ -436,7 +460,7 @@ namespace TinySql
 
         public virtual Table BaseTable()
         {
-            return Tables[0];
+            return Tables.Count > 0 ? Tables[0] : null;
         }
 
 

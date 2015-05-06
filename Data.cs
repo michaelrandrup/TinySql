@@ -13,23 +13,24 @@ namespace TinySql
     {
         #region Execute methods
 
-        public static ResultTable Execute(this SqlBuilder Builder, string ConnectionString, int TimeoutSeconds = 30, params object[] Format)
-        {
-            MetadataTable mt = null;
-            if (Builder.Metadata != null && Builder.Tables.Count > 0)
-            {
-                Table t = Builder.Tables.First();
-                mt = Builder.Metadata[!string.IsNullOrEmpty(t.Schema) ? t.FullName : "dbo." + t.Name];
-            }
-            return new ResultTable(mt, DataTable(Builder, ConnectionString, TimeoutSeconds, Format));
-        }
+        //public static ResultTable Execute(this SqlBuilder Builder, string ConnectionString, int TimeoutSeconds = 30, params object[] Format)
+        //{
+        //    MetadataTable mt = null;
+        //    if (Builder.Metadata != null && Builder.Tables.Count > 0)
+        //    {
+        //        Table t = Builder.Tables.First();
+        //        mt = Builder.Metadata[!string.IsNullOrEmpty(t.Schema) ? t.FullName : "dbo." + t.Name];
+        //    }
+        //    return new ResultTable(mt, DataTable(Builder, ConnectionString, TimeoutSeconds, Format));
+        //}
 
         public static ResultTable Execute(this SqlBuilder Builder, int TimeoutSeconds = 30, bool WithMetadata = true, params object[] Format)
         {
-            return new ResultTable(Builder,TimeoutSeconds,WithMetadata,Format);
+            return new ResultTable(Builder, TimeoutSeconds, WithMetadata, Format);
+
         }
 
-        
+
 
         public static DataTable DataTable(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, params object[] Format)
         {
@@ -64,7 +65,25 @@ namespace TinySql
                 }
                 trans.Complete();
             }
+            if (Builder.StatementType == SqlBuilder.StatementTypes.Procedure)
+            {
+                FillBuilderFromProcedureOutput(Builder, dt);
+            }
             return dt;
+        }
+
+        private static void FillBuilderFromProcedureOutput(SqlBuilder builder, DataTable dt)
+        {
+            int count = builder.Procedure.Parameters.Count(x => x.IsOutput);
+            if (count > 0 && dt.Rows.Count == 1 && dt.Columns.Count == count)
+            {
+                int idx = 0;
+                foreach (ParameterField field in builder.Procedure.Parameters.Where(x => x.IsOutput == true))
+                {
+                    field.Value = dt.Rows[0][idx];
+                    idx++;
+                }
+            }
         }
 
         public static DataSet DataSet(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 60, params object[] Format)
@@ -99,6 +118,10 @@ namespace TinySql
                 }
                 trans.Complete();
             }
+            if (Builder.StatementType == SqlBuilder.StatementTypes.Procedure)
+            {
+                FillBuilderFromProcedureOutput(Builder, ds.Tables[0]);
+            }
             return ds;
         }
 
@@ -107,13 +130,59 @@ namespace TinySql
             using (SqlConnection context = new SqlConnection(ConnectionString))
             {
                 context.Open();
-                SqlCommand cmd = new SqlCommand(Builder.ToSql(Builder.Format), context);
+                SqlCommand cmd = null;
+                if (Builder.StatementType != SqlBuilder.StatementTypes.Procedure)
+                {
+                    cmd = new SqlCommand(Builder.ToSql(Builder.Format), context);
+                }
+                else
+                {
+                    cmd = new SqlCommand(Builder.Procedure.Name, context);
+                    cmd.CommandType = CommandType.StoredProcedure;
+                    foreach (ParameterField par in Builder.Procedure.Parameters)
+                    {
+                        cmd.Parameters.Add(ToSqlParameter(par));
+                    }
+                }
                 cmd.CommandTimeout = Timeout;
                 int i = cmd.ExecuteNonQuery();
                 context.Close();
+                if (Builder.StatementType == SqlBuilder.StatementTypes.Procedure && Builder.Procedure.Parameters.Count(x => x.IsOutput) > 0)
+                {
+                    foreach (ParameterField par in Builder.Procedure.Parameters.Where(x => x.IsOutput))
+                    {
+                        par.Value = cmd.Parameters[par.ParameterName].Value;
+                    }
+                }
                 return i;
             }
         }
+
+        private static SqlParameter ToSqlParameter(ParameterField field)
+        {
+            SqlParameter p = new SqlParameter()
+            {
+                ParameterName = field.ParameterName,
+                SqlDbType = field.SqlDataType,
+                Precision = field.Precision >= 0 ? (byte)field.Precision : (byte)0,
+                Scale = field.Scale >= 0 ? (byte)field.Scale : (byte)0,
+                Size = field.MaxLength >= 0 ? field.MaxLength : 0,
+                Direction = field.IsOutput ? ParameterDirection.Output : ParameterDirection.Input
+            };
+            if (!field.IsOutput)
+            {
+                object o = ParameterField.GetFieldValue(field.DataType, field.Value, field.Builder.Culture);
+                p.Value = o == null ? DBNull.Value : o;
+            }
+            return p;
+        }
+
+        
+        public static int ExecuteNonQuery(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30)
+        {
+            return new SqlBuilder[] { Builder }.ExecuteNonQuery(ConnectionString, TimeoutSeconds);
+        }
+
         public static int ExecuteNonQuery(this SqlBuilder[] Builders, string ConnectionString = null, int TimeoutSeconds = 30)
         {
             ConnectionString = ConnectionString ?? SqlBuilder.DefaultConnection;
@@ -197,7 +266,7 @@ namespace TinySql
             return (S)list;
         }
 
-        
+
 
 
 

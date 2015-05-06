@@ -40,6 +40,16 @@ namespace TinySql.Metadata
 
         public MetadataTable FindTable(string Name, StringComparison CompareOption = StringComparison.OrdinalIgnoreCase)
         {
+            MetadataTable mt = null;
+            string Schema = null;
+            if (!Name.Contains('.'))
+            {
+                Schema = "dbo.";
+            }
+            if (Tables.TryGetValue(Schema + Name, out mt))
+            {
+                return mt;
+            }
             string[] keys = Tables.Keys.Where(x => x.EndsWith(Name, CompareOption)).ToArray();
             if (keys.Length != 1)
             {

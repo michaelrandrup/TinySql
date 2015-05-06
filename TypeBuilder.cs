@@ -31,6 +31,11 @@ namespace TinySql
             }
             foreach (string Name in Properties.Except(ExcludeProperties))
             {
+                if (Name.Equals("*"))
+                {
+                    BaseTable.AllColumns(false);
+                    return builder;
+                }
                 BaseTable.Column(Name);
             }
             return builder;
