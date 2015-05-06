@@ -13,7 +13,7 @@ namespace UnitTests
         public void CrossJoinAccountsAndContactsWithMetadata()
         {
             Guid g = StopWatch.Start();
-            SqlBuilder builder = SqlBuilder.Select(500000)
+            SqlBuilder builder = SqlBuilder.Select(100000)
                 .From("Account")
                 .AllColumns()
                 .WithMetadata().CrossJoin("Contact", null)
