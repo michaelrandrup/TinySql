@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Xml;
+using TinySql.Attributes;
 
 namespace UnitTests
 {
@@ -44,6 +45,7 @@ namespace UnitTests
 
         public decimal AccountTypeID{ get; set; }
 
+        [ForeignKey("State")]
         public decimal StateID { get; set; }
 
         public string State { get; set; }

@@ -8,6 +8,7 @@ using System.Text;
 using TinySql;
 using TinySql.Metadata;
 using TinySql.Serialization;
+using TinySql.Attributes;
 
 namespace UnitTests
 {
