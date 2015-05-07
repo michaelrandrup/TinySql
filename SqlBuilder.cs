@@ -296,11 +296,9 @@ namespace TinySql
             return sb.ToString();
 
         }
-        private string SelectSql()
-        {
-            StringBuilder sb = new StringBuilder();
 
-            // Clean select list
+        public void CleanSelectList(bool RemoveDublicateFields = false)
+        {
             List<string> clean = new List<string>();
             int idx = 0;
             foreach (Field f in Tables.SelectMany(x => x.FieldList))
@@ -312,12 +310,27 @@ namespace TinySql
                 }
                 else
                 {
-                    f.Alias = f.Table.Name + "_" + f.Name;
-                    clean.Add(f.Alias);
+                    if (RemoveDublicateFields)
+                    {
+                        f.Table.FieldList.Remove(f);
+                    }
+                    else
+                    {
+                        f.Alias = f.Table.Name + "_" + f.Name;
+                        clean.Add(f.Alias);
+                        idx++;
+                    }
                     
-                    idx++;
                 }
             }
+        }
+
+        private string SelectSql()
+        {
+            StringBuilder sb = new StringBuilder();
+
+            // Clean select list
+            CleanSelectList(false);
 
 
             string selectList = BaseTable().ToSql();

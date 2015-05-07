@@ -45,7 +45,7 @@ namespace UnitTests
 
         public decimal AccountTypeID{ get; set; }
 
-        [ForeignKey("State")]
+        [FK("State", toSchema: "")]
         public decimal StateID { get; set; }
 
         public string State { get; set; }

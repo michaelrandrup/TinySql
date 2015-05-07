@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TinySql.Metadata.Sql.Comman
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E1424DC2-592D-40D8-998C-5F7272B4035C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TinySql.MVC", "TinySql.MVC\TinySql.MVC.csproj", "{C6F86A26-10A8-41D3-ADE5-F1CE4AE07746}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,6 +37,10 @@ Global
 		{30837967-6B53-4D24-A1B1-38160DC0450D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{30837967-6B53-4D24-A1B1-38160DC0450D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{30837967-6B53-4D24-A1B1-38160DC0450D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C6F86A26-10A8-41D3-ADE5-F1CE4AE07746}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C6F86A26-10A8-41D3-ADE5-F1CE4AE07746}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C6F86A26-10A8-41D3-ADE5-F1CE4AE07746}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C6F86A26-10A8-41D3-ADE5-F1CE4AE07746}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
