@@ -480,11 +480,16 @@ namespace TinySql
             get { return _Culture ?? DefaultCulture; }
             set { _Culture = value; }
         }
+        private static CultureInfo _DefaultCulture = System.Globalization.CultureInfo.GetCultureInfo(1033);
         public static CultureInfo DefaultCulture
         {
             get
             {
-                return System.Globalization.CultureInfo.GetCultureInfo(1033);
+                return _DefaultCulture;
+            }
+            set
+            {
+                _DefaultCulture = value;
             }
         }
 

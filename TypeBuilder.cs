@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
@@ -7,6 +9,33 @@ using System.Xml;
 
 namespace TinySql
 {
+    public class TypeCache
+    {
+        private TypeCache()
+        {
+
+        }
+        private static TypeCache instance = null;
+        public static TypeCache Default
+        {
+            get
+            {
+                if (instance == null)
+                {
+                    instance = new TypeCache();
+                }
+                return instance;
+            }
+        }
+
+        private static ConcurrentDictionary<Type, SqlBuilder> _Select = null;
+
+
+        
+        
+    }
+
+
     public static class TypeBuilder
     {
         public static SqlBuilder Select(Type ObjectType, string TableName = null, string[] Properties = null, string[] ExcludeProperties = null, int? Top = null, bool Distinct = false)

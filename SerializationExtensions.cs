@@ -1,11 +1,12 @@
 ﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using System.IO;
 using System.Text;
 using TinySql.Metadata;
 
 namespace TinySql.Serialization
 {
-    
+
     public static class SerializationExtensions
     {
         private static Newtonsoft.Json.JsonSerializerSettings settings
@@ -17,7 +18,10 @@ namespace TinySql.Serialization
                     PreserveReferencesHandling = Newtonsoft.Json.PreserveReferencesHandling.Objects,
                     ReferenceLoopHandling = ReferenceLoopHandling.Serialize,
                     TypeNameAssemblyFormat = System.Runtime.Serialization.Formatters.FormatterAssemblyStyle.Simple,
-                    TypeNameHandling = TypeNameHandling.Objects
+                    TypeNameHandling = TypeNameHandling.Objects,
+                    DateFormatHandling = DateFormatHandling.IsoDateFormat,
+                    Culture = SqlBuilder.DefaultCulture
+
                 };
             }
         }
@@ -135,7 +139,7 @@ namespace TinySql.Serialization
             }
         }
 
-        
+
 
 
         #endregion

@@ -105,7 +105,7 @@ namespace TinySql
             }
         }
 
-        public static UpdateTable Set(this UpdateTable table, string FieldName, SqlDbType SqlDataType, object Value, Type DataType, int MaxLength = -1, int Scale = -1)
+        public static UpdateTable Set(this UpdateTable table, string FieldName, SqlDbType SqlDataType, object Value, Type DataType, int MaxLength = -1, int Precision = -1, int Scale = -1)
         {
             table.FieldList.Add(new ParameterField()
             {
@@ -113,6 +113,7 @@ namespace TinySql
                 Name = FieldName,
                 ParameterName = "@" + FieldName,
                 MaxLength = MaxLength,
+                Precision = Precision,
                 Scale = Scale,
                 SqlDataType = SqlDataType,
                 DataType = DataType,
@@ -154,7 +155,7 @@ namespace TinySql
             return table.Output;
         }
 
-        public static TableParameterField Column(this TableParameterField table, string FieldName, SqlDbType DataType, int MaxLength = -1, int Scale = -1)
+        public static TableParameterField Column(this TableParameterField table, string FieldName, SqlDbType DataType, int MaxLength = -1, int Precision = -1, int Scale = -1)
         {
 
             table.ParameterTable.FieldList.Add(new Field()
@@ -162,6 +163,7 @@ namespace TinySql
                 Builder = table.Builder,
                 Name = FieldName,
                 MaxLength = MaxLength,
+                Precision = Precision,
                 Scale = Scale,
                 SqlDataType = DataType,
                 Table = table.ParameterTable

@@ -26,6 +26,14 @@ namespace TinySql.MVC
             bundles.Add(new StyleBundle("~/Content/css").Include(
                       "~/Content/bootstrap.css",
                       "~/Content/site.css"));
+
+            bundles.Add(new ScriptBundle("~/bundles/dataTables").Include(
+                "~/Scripts/DataTables-1.10.7/media/js/jquery.dataTables.js",
+                "~/Scripts/DataTables-1.10.7/media/js/dataTables.bootstrap.js"));
+
+            bundles.Add(new StyleBundle("~/content/dataTables").Include(
+                "~/Content/DataTables-1.10.7/media/css/jquery.dataTables.css",
+                "~/Content/DataTables-1.10.7/media/css/dataTables.bootstrap.css"));
         }
     }
 }

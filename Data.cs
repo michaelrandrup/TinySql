@@ -24,9 +24,9 @@ namespace TinySql
         //    return new ResultTable(mt, DataTable(Builder, ConnectionString, TimeoutSeconds, Format));
         //}
 
-        public static ResultTable Execute(this SqlBuilder Builder, int TimeoutSeconds = 30, bool WithMetadata = true, params object[] Format)
+        public static ResultTable Execute(this SqlBuilder Builder, int TimeoutSeconds = 30, bool WithMetadata = true, ResultTable.DateHandlingEnum? DateHandling = null, params object[] Format)
         {
-            return new ResultTable(Builder, TimeoutSeconds, WithMetadata, Format);
+            return new ResultTable(Builder, TimeoutSeconds, WithMetadata,DateHandling, Format);
 
         }
 

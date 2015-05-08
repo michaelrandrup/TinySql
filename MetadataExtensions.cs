@@ -127,7 +127,6 @@ namespace TinySql
         internal Stack<MetadataHelper> Helpers = new Stack<MetadataHelper>();
     }
 
-
     #endregion
 
     public static class MetadataExtensions
@@ -148,6 +147,14 @@ namespace TinySql
             }
             return null;
         }
+        internal static string GetMemberName<TClass, TProperty>(Expression<Func<TClass, TProperty>> Property)
+        {
+            if (Property.Body.NodeType == ExpressionType.MemberAccess)
+            {
+                return (Property.Body as MemberExpression).Member.Name;
+            }
+            return null;
+        }
 
         public static MetadataHelper<TClass> WithMetadata<TClass>(this SqlBuilder Builder, string TableName = null, string Schema = null, string Alias = null)
         {
@@ -158,6 +165,8 @@ namespace TinySql
             helper.Table = Builder.From(helper.Model.Name, Alias, helper.Model.Schema == "dbo" ? null : helper.Model.Schema);
             return helper;
         }
+
+        
 
         public static MetadataHelper WithMetadata(this Table table)
         {
@@ -221,7 +230,13 @@ namespace TinySql
             return helper;
         }
 
-
+        public static MetadataHelper<TClass> Column<TClass, Tother, TProperty>(this MetadataHelper<TClass> helper, Expression<Func<TClass, TProperty>> Property, Expression<Func<Tother, TProperty>> IncludeFrom)
+        {
+            string col = helper.GetMemberName(Property);
+            string other = GetMemberName<Tother, TProperty>(IncludeFrom);
+            string MapColumn = col.Equals(other) ? null : col;
+            return helper.Column(Property,MapColumn);
+        }
 
         #endregion
 
@@ -238,15 +253,18 @@ namespace TinySql
             return newHelper;
         }
 
-        public static MetadataHelper<T> Cast<TClass, T>(this MetadataHelper<TClass> helper)
+        public static MetadataHelper<T> ToTable<T,TClass>(this MetadataHelper<TClass> helper)
         {
             MetadataHelper<T> newHelper = new MetadataHelper<T>()
             {
                 Helpers = helper.Helpers,
                 Model = helper.Model
             };
+            helper.Helpers.Push(helper);
             return newHelper;
         }
+
+        
 
         public static MetadataHelper<TClass> From<TClass>(this MetadataHelper<TClass> helper, string TableName = null)
         {

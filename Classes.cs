@@ -27,7 +27,7 @@ namespace TinySql
             Initialize(dt);
         }
 
-        public ResultTable(SqlBuilder builder, int TimeoutSeconds = 60, bool WithMetadata = true, params object[] Format)
+        public ResultTable(SqlBuilder builder, int TimeoutSeconds = 60, bool WithMetadata = true, DateHandlingEnum? DateHandling = null, params object[] Format)
         {
             DataSet ds = builder.DataSet(builder.ConnectionString, TimeoutSeconds, Format);
             Table bt = builder.BaseTable();
@@ -35,8 +35,10 @@ namespace TinySql
             {
                 this.Metadata = GetMetadataTable(builder.Metadata, bt.FullName);
             }
-            
+
             this.WithMetadata = WithMetadata;
+            this.DateHandling = DateHandling;
+
             Initialize(ds.Tables[0]);
             ResultTable Current = this;
             int CurrentTable = 0;
@@ -91,7 +93,7 @@ namespace TinySql
             {
                 rt.Metadata = GetMetadataTable(builder.Metadata, bt.FullName);
             }
-            
+
 
 
             string PropName = builder.BuilderName ?? rt.Metadata.Name + "List";
@@ -250,10 +252,27 @@ namespace TinySql
         {
             return GetEnumerator();
         }
+
+        public enum DateHandlingEnum : int
+        {
+            None = 0,
+            ConvertToString = 1,
+            ConvertToDate = 2
+        }
+
+        public static DateHandlingEnum DefaultDateHandling = DateHandlingEnum.None;
+        private DateHandlingEnum? _DateHandling = null;
+
+        public DateHandlingEnum? DateHandling
+        {
+            get { return _DateHandling ?? DefaultDateHandling; }
+            set { _DateHandling = value; }
+        }
     }
 
     public class RowData : DynamicObject, ICloneable
     {
+
 
         public RowData(ResultTable Parent, DataRow dr, DataColumnCollection Columns)
         {
@@ -263,16 +282,26 @@ namespace TinySql
             {
                 object o = dr.IsNull(Col) ? null : dr[Col];
                 string key = Col.ColumnName.Replace(" ", "_");
-                _OriginalValues[key] = o;
+                if (o != null && Parent.DateHandling != ResultTable.DateHandlingEnum.None && o.GetType() == typeof(DateTime))
+                {
+                    if (Parent.DateHandling == ResultTable.DateHandlingEnum.ConvertToString)
+                    {
+                        o = ((DateTime)o).ToString(SqlBuilder.DefaultCulture);
+                    }
+                    else if (Parent.DateHandling == ResultTable.DateHandlingEnum.ConvertToDate)
+                    {
+                        o = ((DateTime)o).ToString("G", SqlBuilder.DefaultCulture);
+                    }
+
+                }
+                _OriginalValues.TryAdd(key, o);
+                //_OriginalValues[key] = o;
                 //if (!_OriginalValues.TryAdd(key, o))
                 //{
                 //    throw new InvalidOperationException(string.Format("Unable to set the RowData value {0} for Column {1}", o, Col.ColumnName));
                 //}
             }
-            if (Parent.WithMetadata && Parent.Metadata != null)
-            {
-                LoadMetadata(Parent.Metadata);
-            }
+            LoadMetadata(Parent.Metadata, Parent.WithMetadata);
         }
 
 
@@ -281,10 +310,35 @@ namespace TinySql
 
         }
 
-        public void LoadMetadata(MetadataTable mt)
+        public bool LoadMetadata()
         {
-            _OriginalValues.AddOrUpdate("__PK", mt.PrimaryKey.Columns, (k, v) => { return mt.PrimaryKey.Columns; });
+            if (this.Metadata != null)
+            {
+                return false;
+            }
+            string table = this.Table;
+            if (string.IsNullOrEmpty(table))
+            {
+                return false;
+            }
+            MetadataTable mt = SqlBuilder.DefaultMetadata.FindTable(Table);
+            if (mt == null)
+            {
+                return false;
+            }
+            LoadMetadata(mt, true);
+            return true;
+
+        }
+
+        public void LoadMetadata(MetadataTable mt, bool CachePrimaryKey = false)
+        {
+            if (mt == null) { return; }
             _OriginalValues.AddOrUpdate("__TABLE", mt.Fullname, (k, v) => { return mt.Fullname; });
+            if (CachePrimaryKey)
+            {
+                _OriginalValues.AddOrUpdate("__PK", mt.PrimaryKey.Columns, (k, v) => { return mt.PrimaryKey.Columns; });
+            }
         }
 
         public string Table
@@ -737,7 +791,7 @@ namespace TinySql
             {
                 return string.Format("{0} {1}", JoinClause(JoinType), ToTable.ReferenceName);
             }
-            
+
         }
 
     }
@@ -1288,35 +1342,54 @@ namespace TinySql
             }
         }
 
+        private bool IsDateData(SqlDbType SqlDataType)
+        {
+            return SqlDataType == SqlDbType.DateTime || SqlDataType == SqlDbType.DateTime2 || SqlDataType == SqlDbType.DateTimeOffset;
+        }
+
         public string GetSqlDataType()
         {
             string sql = SqlDataType.ToString();
-            if (MaxLength != -1)
+            //if (MaxLength != -1 && (SqlDataType != SqlDbType.DateTime || SqlDataType != SqlDbType.DateTime2 || SqlDataType != SqlDbType.DateTimeOffset))
+            //{
+            //    sql += "(" + (MaxLength == 0 ? "max" : MaxLength.ToString()) + (Scale != -1 ? "," + Scale : "") + ")";
+            //}
+            //else
+            //{
+            if (SqlDataType == SqlDbType.NVarChar || SqlDataType == SqlDbType.VarChar || SqlDataType == SqlDbType.Text || SqlDataType == SqlDbType.NText)
             {
-                sql += "(" + (MaxLength == 0 ? "max" : MaxLength.ToString()) + (Scale != -1 ? "," + Scale : "") + ")";
-            }
-            else
-            {
-                if (SqlDataType == SqlDbType.NVarChar || SqlDataType == SqlDbType.VarChar || SqlDataType == SqlDbType.Text || SqlDataType == SqlDbType.NText)
+                if (MaxLength <= 0)
                 {
                     sql += "(MAX)";
                 }
-                else if (SqlDataType == SqlDbType.VarBinary)
-                {
-                    if (Value != null)
-                    {
-
-                        sql += "(" + ((byte[])Value).Length.ToString() + ")";
-                    }
-                }
                 else
                 {
-                    if (Precision >= 0)
-                    {
-                        sql += string.Format("({0}{1})", Precision, Scale >= 0 ? ", " + Scale.ToString() : "");
-                    }
+                    sql += string.Format("({0})", MaxLength);
                 }
             }
+            //else if (SqlDataType == SqlDbType.Xml)
+            //{
+            //    if (Value.GetType() == typeof(XmlDocument))
+            //    {
+            //        sql += string.Format("({0})", MaxLength);
+            //    }
+            //}
+            else if (SqlDataType == SqlDbType.VarBinary)
+            {
+                if (Value != null)
+                {
+
+                    sql += "(" + ((byte[])Value).Length.ToString() + ")";
+                }
+            }
+            else
+            {
+                if (Precision > 0 && !IsDateData(SqlDataType))
+                {
+                    sql += string.Format("({0}{1})", Precision, Scale >= 0 ? ", " + Scale.ToString() : "");
+                }
+            }
+            //}
             return sql;
         }
 
@@ -1371,9 +1444,13 @@ namespace TinySql
                     return ((XmlDocument)FieldValue).OuterXml.Replace("'", "''");
                 }
             }
-            if (DataType == typeof(DateTime) || DataType == typeof(DateTimeOffset) || DataType == typeof(DateTime?) || DataType == typeof(DateTimeOffset?))
+            if (DataType == typeof(DateTime) || DataType == typeof(DateTime?)) 
             {
-                return string.Format("{0:s}", FieldValue);
+                return string.Format("{0:s}", DateTime.Parse(FieldValue.ToString()));
+            }
+            if (DataType == typeof(DateTimeOffset)  || DataType == typeof(DateTimeOffset?))
+            {
+                return string.Format("{0:s}", DateTimeOffset.Parse(FieldValue.ToString()));
             }
             if (DataType == typeof(IList) || DataType == typeof(List<>) || DataType.Name.Equals("List`1"))
             {

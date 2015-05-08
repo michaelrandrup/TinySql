@@ -1,0 +1,48 @@
+﻿@using TinySql
+@using TinySql.Metadata
+@model ResultTable
+@{
+    ViewBag.Title = "Contacts";
+}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <h2>Contacts</h2>
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th data-name="ContactID" data-type="num" data-visible="true">ID</th>
+                        <th data-name="AccountName" data-type="string">Account</th>
+                        <th data-name="Name" data-type="string">Contact</th>
+                        <th data-name="Telephone" data-type="string">Telephone</th>
+                        <th data-name="WorkEmail" data-type="string">Email</th>
+                        <th data-name="ModifiedOn" data-type="date">Modified</th>
+                    </tr>
+                </thead>
+                @*<tbody>
+    @foreach (dynamic row in Model)
+    {
+        <tr>
+            <td>@row.ContactID</td>
+            <td>@row.Name</td>
+            <td>@row.Telephone</td>
+            <td>@row.WorkEmail</td>
+        </tr>
+    }
+                </tbody>*@
+            </table>
+        </div>
+    </div>
+</div>
+
+
+
+@section scripts {
+    @Scripts.Render("~/bundles/dataTables")
+    @Scripts.Render("~/Scripts/TinySql.js")
+}
+
+@section styles {
+    @Styles.Render("~/content/dataTables")
+}
