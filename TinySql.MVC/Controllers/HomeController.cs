@@ -7,6 +7,8 @@ using System.Web.Mvc;
 using TinySql;
 using TinySql.Metadata;
 using TinySql.MVC.Models;
+using TinySql.UI;
+
 
 namespace TinySql.MVC.Controllers
 {
@@ -27,6 +29,24 @@ namespace TinySql.MVC.Controllers
             return View();
         }
 
+        public ActionResult EditForm()
+        {
+            MetadataTable table = SqlBuilder.DefaultMetadata.FindTable("Contact");
+            Form model = FormFactory.Default.GetForm(table, FormTypes.Primary);
+
+            SqlBuilder builder = SqlBuilder.Select()
+                .From("Contact").AllColumns()
+                .Where<decimal>("Contact","ContactID", SqlOperators.Equal,1403)
+                .Builder();
+            ResultTable result = builder.Execute();
+
+            model.Initialize(result.First());
+            model.FormLayout = FormLayouts.Horizontal;
+            model.CssFormLayout = "form-horizontal";
+            model.Sections[0].SectionLayout = SectionLayouts.VerticalTwoColumns;
+            //return View("~/Views/TinySql/Details/Form.cshtml", model);
+            return View(model);
+        }
 
         public ActionResult Index()
         {

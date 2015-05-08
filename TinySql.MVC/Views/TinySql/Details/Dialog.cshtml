@@ -1,0 +1,32 @@
+﻿@using TinySql.UI
+@model TinySql.UI.Form
+@using System.Web.Mvc
+
+@{
+    ViewBag.Title = Model.Title;
+
+}
+
+<div id="dialog" class="modal fade" role="dialog" aria-labelledby="title@(Model.ID)" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 id="title@(Model.ID)" class="model-title">@Model.Title</h4>
+            </div>
+            <div class="modal-body">
+                @*<div class="container">*@
+                    <form id="@Model.ID" class="@Model.CssFormLayout">
+                        @foreach (FormSection Section in Model.Sections)
+                        {
+                            @Html.Partial(Model.CssSectionView, Model.GetSectionModel(Section))
+                        }
+                    </form>
+                @*</div>*@
+            </div>
+            @*<div class="modal-footer">
+            </div>*@
+        </div>
+    </div>
+
+</div>
+

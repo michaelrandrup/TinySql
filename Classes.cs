@@ -272,7 +272,29 @@ namespace TinySql
 
     public class RowData : DynamicObject, ICloneable
     {
+        public static RowData Create(MetadataTable Table, bool CachePrimaryKey = false)
+        {
+            ConcurrentDictionary<string, object> values = new ConcurrentDictionary<string, object>();
+            foreach (MetadataColumn mc in Table.Columns.Values)
+            {
+                object v = null;
+                if (!mc.Nullable && mc.DataType.IsValueType)
+                {
+                    v = Activator.CreateInstance(mc.DataType);
+                }
 
+                if (!values.TryAdd(
+                    mc.Name,
+                    v
+                    ))
+                {
+                    throw new ArgumentException("The value from the column" + mc.Name + " could not be added to the row");
+                }
+            }
+            RowData row = new RowData(values, new ConcurrentDictionary<string, object>());
+            row.LoadMetadata(Table, CachePrimaryKey);
+            return row;
+        }
 
         public RowData(ResultTable Parent, DataRow dr, DataColumnCollection Columns)
         {

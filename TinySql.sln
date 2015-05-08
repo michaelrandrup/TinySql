@@ -15,6 +15,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TinySql.MVC", "TinySql.MVC\TinySql.MVC.csproj", "{C6F86A26-10A8-41D3-ADE5-F1CE4AE07746}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TinySql.UI", "TinySql.UI\TinySql.UI.csproj", "{2ACC97AD-78C4-42F2-B309-B535EA12B336}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -41,6 +43,10 @@ Global
 		{C6F86A26-10A8-41D3-ADE5-F1CE4AE07746}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C6F86A26-10A8-41D3-ADE5-F1CE4AE07746}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C6F86A26-10A8-41D3-ADE5-F1CE4AE07746}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2ACC97AD-78C4-42F2-B309-B535EA12B336}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2ACC97AD-78C4-42F2-B309-B535EA12B336}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2ACC97AD-78C4-42F2-B309-B535EA12B336}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2ACC97AD-78C4-42F2-B309-B535EA12B336}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

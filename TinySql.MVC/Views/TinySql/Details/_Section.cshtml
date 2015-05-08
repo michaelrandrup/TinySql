@@ -1,0 +1,49 @@
+﻿@using TinySql.UI
+@model SectionModel
+<div id="@Model.Section.ID" class="@Model.Section.CssFormSection">
+    <fieldset class="col-md-12" @(Model.Section.IsReadOnly ? "disabled" : "")>
+        @foreach (FormField Field in Model.Section.Fields)
+        {
+            FieldModel fieldModel = Model.Section.GetFieldModel(Field, Model.Model, Model.Data);
+            switch (Model.Section.SectionLayout)
+            {
+                case SectionLayouts.Vertical:
+                default:
+                    <div class="@Field.CssFieldGroup">
+                        @Html.TinySqlLabel(fieldModel)
+                        @Html.TinySqlInput(fieldModel)
+                    </div>
+                    break;
+
+                case SectionLayouts.VerticalTwoColumns:
+                <div class="@Model.Section.CssSectionTwoColumns">
+                    <div class="@Field.CssFieldGroup">
+                        @Html.TinySqlLabel(fieldModel)
+                        @Html.TinySqlInput(fieldModel)
+                    </div>
+                </div>
+                    break;
+
+                case SectionLayouts.HorizontalOneColumn:
+                <div class="@Field.CssFieldGroup">
+                    @Html.TinySqlLabel(fieldModel)
+                    <div class="@Field.GetCssInputLayout(Model.Section.SectionLayout)">
+                        @Html.TinySqlInput(fieldModel)
+                    </div>
+                </div>
+                    break;
+
+                case SectionLayouts.HorizontalTwoColumns:
+                <div class="@Model.Section.CssSectionTwoColumns">
+                    <div class="@Field.CssFieldGroup">
+                        @Html.TinySqlLabel(fieldModel)
+                        <div class="@Field.GetCssInputLayout(Model.Section.SectionLayout)">
+                            @Html.TinySqlInput(fieldModel)
+                        </div>
+                    </div>
+                </div>
+                    break;
+            }
+        }
+    </fieldset>
+</div>
