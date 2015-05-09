@@ -169,7 +169,7 @@ namespace TinySql.UI
             set { _CssFormSection = value; }
         }
 
-        private SectionLayouts _SectionLayout = SectionLayouts.Vertical;
+        private SectionLayouts _SectionLayout = SectionLayouts.VerticalTwoColumns;
 
         public SectionLayouts SectionLayout
         {

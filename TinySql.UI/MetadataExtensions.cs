@@ -18,10 +18,10 @@ namespace TinySql.UI
     {
         
 
-        public static string GetDisplayName(this MetadataColumn mc, string TableName,int? LCID = null)
-        {
-            int lcid = LCID.HasValue ? LCID.Value : SqlBuilder.DefaultCulture.LCID;
-            return StringMap.Default.GetText(lcid, TableName + mc.Name, mc.Name);
-        }
+        //public static string GetDisplayName(this MetadataColumn mc, string TableName,int? LCID = null)
+        //{
+        //    int lcid = LCID.HasValue ? LCID.Value : SqlBuilder.DefaultCulture.LCID;
+        //    return StringMap.Default.GetText(lcid, TableName + mc.Name, mc.Name);
+        //}
     }
 }

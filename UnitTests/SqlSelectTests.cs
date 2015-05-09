@@ -14,6 +14,27 @@ namespace UnitTests
     public class SqlSelectTests : BaseTest
     {
         [TestMethod]
+        public void TestHashCodes()
+        {
+            SqlBuilder Builder1 = SqlBuilder.Select().From("Contact").WithMetadata().InnerJoin("AccountID").Builder();
+            SqlBuilder Builder2 = SqlBuilder.Select().From("Contact").WithMetadata().InnerJoin("AccountID").Builder();
+            int h1 = Builder1.ToSql().GetHashCode();
+            int h2 = Builder2.ToSql().GetHashCode();
+            Assert.AreEqual(h1, h2, "The Builders are not equal");
+            Console.WriteLine("Builder 1 hash: {0}. Builder 2 hash {1}", Builder1.ToSql().GetHashCode(), Builder2.ToSql().GetHashCode());
+            Builder2.From("Contact").Where<decimal>("Contact", "ContactID", SqlOperators.Equal, 4109);
+            h1 = Builder1.ToSql().GetHashCode();
+            h2 = Builder2.ToSql().GetHashCode();
+            Console.WriteLine("Builder 1 hash: {0}. Builder 2 hash {1}", h1, h2);
+            Assert.AreNotEqual(h1, h2, "The Builders are not equal");
+
+            
+
+
+        }
+
+
+        [TestMethod]
         public void ExecuteDeepParent()
         {
             Guid g = StopWatch.Start();
@@ -105,6 +126,10 @@ namespace UnitTests
                 Console.WriteLine("The account {0} has {1} Contacts", row.Name, contacts.Count);
                 Console.WriteLine("The account {0} has a total of {1} Activities", row.Name, contacts.SelectMany(x => x.Column<ResultTable>("Activities")).Count());
             }
+
+            Console.Write("Executing a second time with results in cahce:");
+            result = ExecuteDeepInternal();
+
 
 
 

@@ -5,6 +5,7 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Reflection;
 using System.Transactions;
+using TinySql.Cache;
 using TinySql.Metadata;
 
 namespace TinySql
@@ -13,21 +14,22 @@ namespace TinySql
     {
         #region Execute methods
 
-        //public static ResultTable Execute(this SqlBuilder Builder, string ConnectionString, int TimeoutSeconds = 30, params object[] Format)
-        //{
-        //    MetadataTable mt = null;
-        //    if (Builder.Metadata != null && Builder.Tables.Count > 0)
-        //    {
-        //        Table t = Builder.Tables.First();
-        //        mt = Builder.Metadata[!string.IsNullOrEmpty(t.Schema) ? t.FullName : "dbo." + t.Name];
-        //    }
-        //    return new ResultTable(mt, DataTable(Builder, ConnectionString, TimeoutSeconds, Format));
-        //}
-
-        public static ResultTable Execute(this SqlBuilder Builder, int TimeoutSeconds = 30, bool WithMetadata = true, ResultTable.DateHandlingEnum? DateHandling = null, params object[] Format)
+        public static ResultTable Execute(this SqlBuilder Builder, int TimeoutSeconds = 30, bool WithMetadata = true, ResultTable.DateHandlingEnum? DateHandling = null, bool UseCache = true, params object[] Format)
         {
-            return new ResultTable(Builder, TimeoutSeconds, WithMetadata,DateHandling, Format);
-
+            if (UseCache && CacheProvider.UseResultCache)
+            {
+               if (CacheProvider.ResultCache.IsCached(Builder))
+                {
+                    return CacheProvider.ResultCache.ResultFromCahce(Builder);
+                }
+            }
+            ResultTable result = new ResultTable(Builder, TimeoutSeconds, WithMetadata,DateHandling, Format);
+            if (CacheProvider.UseResultCache)
+            {
+                CacheProvider.ResultCache.AddToCache(Builder, result);
+            }
+            return result;
+            
         }
 
 
@@ -178,7 +180,7 @@ namespace TinySql
             return p;
         }
 
-        
+
         public static int ExecuteNonQuery(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30)
         {
             return new SqlBuilder[] { Builder }.ExecuteNonQuery(ConnectionString, TimeoutSeconds);

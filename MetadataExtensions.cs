@@ -4,6 +4,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using TinySql.Metadata;
+using TinySql;
 
 namespace TinySql
 {
@@ -239,6 +240,22 @@ namespace TinySql
 
         #region Join statements
 
+        public static Table AutoJoin(this MetadataHelper helper, string ForeignKeyField)
+        {
+            MetadataColumn FromField = null;
+            if (!helper.Model.Columns.TryGetValue(ForeignKeyField, out FromField))
+            {
+                throw new ArgumentException("The Field " + ForeignKeyField + " was not found", "FromField");
+            }
+            if (FromField.Nullable)
+            {
+                return LeftJoin(helper, ForeignKeyField);
+            }
+            else
+            {
+                return InnerJoin(helper, ForeignKeyField);
+            }
+        }
         public static Table InnerJoin(this MetadataHelper helper, string ForeignKeyField)
         {
             return JoinInternal(helper, ForeignKeyField, Join.JoinTypes.Inner);

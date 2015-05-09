@@ -83,6 +83,10 @@ namespace UnitTests
             ResultTable result = builder.Execute(30, false);
             Console.WriteLine("{0} rows selected in {1}ms", result.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
             Console.WriteLine(SerializationExtensions.ToJson<dynamic>(result.First(), true));
+            g = StopWatch.Start();
+            result = builder.Execute(30, false);
+            Console.WriteLine("Executed a second time in {0}ms", StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
+            Console.WriteLine(SerializationExtensions.ToJson<dynamic>(result.First(), true));
         }
 
         [TestMethod]

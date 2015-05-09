@@ -55,7 +55,7 @@ namespace TinySql.UI
             }
         }
 
-        public Form BuildForm(SqlBuilder Builder, FormLayouts FormLayout = FormLayouts.Vertical, SectionLayouts SectionLayout = SectionLayouts.Vertical)
+        public Form BuildForm(SqlBuilder Builder, FormLayouts FormLayout = FormLayouts.Vertical, SectionLayouts SectionLayout = SectionLayouts.VerticalTwoColumns)
         {
             Form form = new Form();
             form.FormLayout = FormLayout;
@@ -103,7 +103,7 @@ namespace TinySql.UI
 
             FormSection section = new FormSection();
             section.SectionLayout = SectionLayout;
-            string[] Columns = Data.Columns;
+            List<string> Columns = Data.Columns;
             string TableName = Table.Fullname;
             foreach (string s in Columns)
             {
@@ -135,6 +135,13 @@ namespace TinySql.UI
             }
             form.Sections.Add(section);
             return form;
+        }
+
+        
+
+        public static void BuildField(MetadataColumn Column, string Alias, FormSection Section, bool ForceReadonly = false)
+        {
+            BuildField(Column, Column.Parent.Schema + "." + Column.Parent.Name, Alias, Section, null, ForceReadonly);
         }
 
         private static void BuildField(MetadataColumn col, string TableName, string Alias, FormSection section, MetadataColumn IncludeFrom, bool ForceReadOnly = false)

@@ -41,17 +41,17 @@ namespace TinySql.MVC.Controllers
             //    .Builder();
 
             SqlBuilder builder = SqlBuilder.Select()
-                .From("Contact").Columns("ContactID","Name","Title","WorkEmail", "JobfunctionID", "JobpositionID","StateID")
+                .From("Contact").Columns("ContactID","Name","Title","WorkEmail","JobfunctionID", "JobpositionID","StateID")
                 .WithMetadata()
-                .InnerJoin("AccountID")
-                .From("Contact").WithMetadata().LeftJoin("JobfunctionID")
-                .From("Contact").WithMetadata().LeftJoin("JobpositionID")
+                .AutoJoin("AccountID")
+                .From("Contact").WithMetadata().AutoJoin("JobfunctionID")
+                .From("Contact").WithMetadata().AutoJoin("JobpositionID")
                 .Where<decimal>("Contact", "ContactID", SqlOperators.Equal, 1429)
                 .Builder();
             
             ResultTable result = builder.Execute();
             Form model = FormFactory.Default.BuildForm(builder);
-
+            
             MetadataColumn mc;
             if (table.Columns.TryGetValue("JobfunctionID", out mc))
             {

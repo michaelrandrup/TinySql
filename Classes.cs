@@ -302,6 +302,7 @@ namespace TinySql
             //_ChangedValues = new ConcurrentDictionary<string, object>();
             foreach (DataColumn Col in Columns)
             {
+                _Columns.Add(Col.ColumnName);
                 object o = dr.IsNull(Col) ? null : dr[Col];
                 string key = Col.ColumnName.Replace(" ", "_");
                 if (o != null && Parent.DateHandling != ResultTable.DateHandlingEnum.None && o.GetType() == typeof(DateTime))
@@ -481,13 +482,39 @@ namespace TinySql
             return (T)o;
         }
 
-        public string[] Columns
+        private List<string> _Columns = new List<string>();
+
+        public List<string> Columns
         {
-            get
-            {
-                return _OriginalValues.Keys.Where(x => !x.StartsWith("__")).ToArray();
-            }
+            get { return _Columns; }
+            set { _Columns = value; }
         }
+
+        
+        //public string[] Columns
+        
+        //    get
+        //    {
+        //        return Columns.ToArray();
+        //        List<string> keys = new List<string>();
+        //        //for (int i = 0; i < _OriginalValues.Keys.Count; i++)
+        //        //{
+        //        //    if (!_OriginalValues.Keys[i].StartsWith("__"))
+        //        //    {
+        //        //        keys.Add(_OriginalValues.Keys[i]);
+        //        //    }
+        //        //}
+        //        //return keys.ToArray();
+        //        foreach (string key in _OriginalValues.Keys)
+        //        {
+        //            if (!key.StartsWith("__"))
+        //            {
+        //                keys.Add(key);
+        //            }
+        //        }
+        //        return keys.ToArray();
+        //    }
+        //}
 
 
 
@@ -567,6 +594,7 @@ namespace TinySql
             }
             return _OriginalValues.TryGetValue(Column, out value);
         }
+
 
 
         public object Clone()
@@ -1003,10 +1031,10 @@ namespace TinySql
         {
             ParameterTable = new Table();
         }
-        private new System.Data.SqlDbType SqlDataType;
-        private new int MaxLength = -1;
-        private new int Scale = -1;
-        private new bool IsOutput = false;
+        //private new System.Data.SqlDbType SqlDataType;
+        //private new int MaxLength = -1;
+        //private new int Scale = -1;
+        //private new bool IsOutput = false;
         public Table ParameterTable;
         public override string DeclareParameter()
         {

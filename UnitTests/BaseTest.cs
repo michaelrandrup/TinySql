@@ -15,6 +15,8 @@ namespace UnitTests
         public void Initialize()
         {
             Assert.AreEqual<bool>(SetupData.Setup(), true);
+            TinySql.Cache.CacheProvider.UseResultCache = true;
+            TinySql.Cache.CacheProvider.ResultCache.CacheMinutes = 1;
         }
         public BaseTest()
         {

@@ -28,7 +28,7 @@ namespace TinySql
             }
         }
 
-        private static ConcurrentDictionary<Type, SqlBuilder> _Select = null;
+        //private static ConcurrentDictionary<Type, SqlBuilder> _Select = null;
 
 
         
