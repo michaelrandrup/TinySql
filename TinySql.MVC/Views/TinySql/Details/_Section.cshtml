@@ -2,6 +2,10 @@
 @model SectionModel
 <div id="@Model.Section.ID" class="@Model.Section.CssFormSection">
     <fieldset class="col-md-12" @(Model.Section.IsReadOnly ? "disabled" : "")>
+        @if (Model.Section.Legend != null)
+        {
+            <legend>@Model.Section.Legend</legend>
+        }
         @foreach (FormField Field in Model.Section.Fields)
         {
             FieldModel fieldModel = Model.Section.GetFieldModel(Field, Model.Model, Model.Data);

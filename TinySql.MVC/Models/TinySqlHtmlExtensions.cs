@@ -23,15 +23,17 @@ namespace TinySql.UI
         public static MvcHtmlString TinySqlInput(this HtmlHelper helper, FieldModel model)
         {
             string ctrl = "";
+            string ReadOnly = model.Field.IsReadOnly ? "readonly" : "";
             if (model.Field.FieldType == FieldTypes.Input)
             {
-                ctrl = string.Format("<input type=\"{4}\" class=\"{2}\" name=\"{1}\" id=\"input{0}\" placeholder=\"Email\" value=\"{5}\" >",
+                ctrl = string.Format("<input type=\"{4}\" class=\"{2}\" name=\"{1}\" id=\"input{0}\" placeholder=\"Email\" value=\"{5}\" {6} >",
                     model.Field.ID,                                         // 0
                     model.Field.Name,                                       // 1
                     model.Field.CssInputControlLayout,                      // 2
                     model.Field.NullText,                                   // 3
                     model.Field.InputType.ToString().Replace("_","-"),      // 4
-                    model.Data == null ? "" : Convert.ToString(model.Data)  // 5
+                    model.Data == null ? "" : Convert.ToString(model.Data),  // 5
+                    ReadOnly                                                // 6
                     );
             }
 

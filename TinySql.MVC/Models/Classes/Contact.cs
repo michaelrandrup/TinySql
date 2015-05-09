@@ -18,8 +18,10 @@ namespace TinySql.MVC.Models
 
 		public Decimal  DatasourceID { get; set; }
 
+		[FK("Checkkode","CheckID","dbo","FK_Contact_JobfunctionID_Checkkode")]
 		public Decimal  JobfunctionID { get; set; }
 
+		[FK("Checkkode","CheckID","dbo","FK_Contact_JobpositionID_Checkkode")]
 		public Decimal  JobpositionID { get; set; }
 
 		public String  Mobile { get; set; }

@@ -24,7 +24,7 @@ namespace TinySql.UI
                 MetadataColumn mc = Table.Columns.Values.First(x => x.Name.Equals("name", StringComparison.OrdinalIgnoreCase));
                 if (mc != null) { return mc.Name; }
             }
-            return null;
+            return Table.PrimaryKey.Columns.First().Name;
         }
 
         public static string GetDisplayName(this MetadataColumn mc, string TableName,int? LCID = null)

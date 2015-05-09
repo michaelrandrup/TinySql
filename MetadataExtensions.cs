@@ -344,14 +344,34 @@ namespace TinySql
             {
                 throw new ArgumentException("The Field " + ForeignKeyField + " points to more than one table", "FromField");
             }
-            string table = Fks.First().ReferencedSchema + "." + Fks.First().ReferencedTable;
+            MetadataForeignKey FK = Fks.First();
+            string table = FK.ReferencedSchema + "." + FK.ReferencedTable;
             MetadataTable ToTable = helper.Table.Builder.Metadata.FindTable(table);
             if (ToTable == null)
             {
                 throw new InvalidOperationException("The table '" + table + "' was not found in metadata");
             }
             JoinConditionGroup jcg = To(helper.Table.Builder, helper.Table, helper.Model, FromField, ToTable, JoinType, true);
-            return jcg.ToTable();
+            
+            Table toTable = jcg.ToTable();
+
+            if (FromField.IncludeColumns != null)
+            {
+                foreach (string include in FromField.IncludeColumns)
+                {
+                    string iName = include;
+                    string iAlias = null;
+                    if (include.IndexOf('=')>0)
+                    {
+                        iName = include.Split('=')[0];
+                        iAlias = include.Split('=')[1];
+                    }
+                    toTable.Column(iName, iAlias);
+                }
+            }
+
+            return toTable;
+
         }
 
         private static JoinConditionGroup To(SqlBuilder Builder, Table FromSqlTable, MetadataTable FromTable, MetadataColumn FromField, MetadataTable ToTable, Join.JoinTypes JoinType, bool PreferForeignKeyOverPrimaryKey = true)
@@ -362,7 +382,6 @@ namespace TinySql
             Join j = null;
             MetadataColumnReference mcr = null;
             JoinConditionGroup jcg = null;
-            bool joined = false;
 
             if (FromField.IsPrimaryKey)
             {
@@ -393,7 +412,36 @@ namespace TinySql
                 FK = Fks.First();
                 j = SqlStatementExtensions.MakeJoin(JoinType, FromSqlTable, ToTable.Name, null, ToTable.Schema.Equals("dbo") ? null : ToTable.Schema);
                 mcr = FK.ColumnReferences.First();
-                jcg = j.On(mcr.Name, SqlOperators.Equal, mcr.ReferencedColumn.Name);
+                jcg = j.On(FromField.Name, SqlOperators.Equal, mcr.ReferencedColumn.Name);
+                
+                if (FK.ColumnReferences.Count > 1)
+                {
+                    foreach (MetadataColumnReference mcr2 in FK.ColumnReferences.Skip(1))
+                    {
+                        if (mcr2.Name.StartsWith("\""))
+                        {
+                            // its a value reference
+                            // jcg.And(FK.ReferencedTable, mcr2.ReferencedColumn.Name, SqlOperators.Equal, mcr2.Name.Trim('\"'),null);
+
+                            decimal d;
+                            object o;
+                            if (decimal.TryParse(mcr2.Name.Trim('\"'),out d))
+                            {
+                                o = d;
+                            }
+                            else
+                            {
+                                o = (object)mcr2.Name.Trim('\"');
+                            }
+
+                            jcg.And(mcr2.ReferencedColumn.Name, SqlOperators.Equal,o, null);
+                        }
+                        else
+                        {
+                            jcg.And(mcr2.Column.Name, SqlOperators.Equal, mcr2.ReferencedColumn.Name);
+                        }
+                    }
+                }
                 return jcg;
             }
             throw new ArgumentException(string.Format("The Column '{0}' in the table '{1}' must be a foreign key or primary key", FromField.Name, FromTable.Fullname), "FromField");

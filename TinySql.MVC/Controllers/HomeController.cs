@@ -32,18 +32,28 @@ namespace TinySql.MVC.Controllers
         public ActionResult EditForm()
         {
             MetadataTable table = SqlBuilder.DefaultMetadata.FindTable("Contact");
-            Form model = FormFactory.Default.GetForm(table, FormTypes.Primary);
+            
+            // Form model = FormFactory.Default.GetForm(table, FormTypes.Primary);
+            //SqlBuilder builder = SqlBuilder.Select()
+            //    .From("Contact").AllColumns()
+            //    .Where<decimal>("Contact","ContactID", SqlOperators.Equal,1403)
+            //    .Builder();
 
             SqlBuilder builder = SqlBuilder.Select()
-                .From("Contact").AllColumns()
-                .Where<decimal>("Contact","ContactID", SqlOperators.Equal,1403)
+                .From("Contact").Columns("ContactID","Name","Title","WorkEmail")
+                .WithMetadata()
+                .InnerJoin("AccountID")
+                .From("Contact").WithMetadata().LeftJoin("JobfunctionID")
+                .From("Contact").WithMetadata().LeftJoin("JobpositionID")
+                .Where<decimal>("Contact", "ContactID", SqlOperators.Equal, 1429)
                 .Builder();
+            
             ResultTable result = builder.Execute();
-
+            Form model = FormFactory.Default.BuildForm(builder);
             model.Initialize(result.First());
-            model.FormLayout = FormLayouts.Horizontal;
-            model.CssFormLayout = "form-horizontal";
-            model.Sections[0].SectionLayout = SectionLayouts.VerticalTwoColumns;
+            //model.FormLayout = FormLayouts.Horizontal;
+            //model.CssFormLayout = "form-horizontal";
+            //model.Sections[0].SectionLayout = SectionLayouts.VerticalTwoColumns;
             //return View("~/Views/TinySql/Details/Form.cshtml", model);
             return View(model);
         }

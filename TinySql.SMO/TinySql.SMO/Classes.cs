@@ -9,6 +9,7 @@ using System.Data;
 using System.Runtime.Caching;
 using TinySql.Serialization;
 using System.IO;
+using System.Collections.Concurrent;
 
 namespace TinySql.Metadata
 {
@@ -100,8 +101,8 @@ namespace TinySql.Metadata
                     foreach (string change in Changes)
                     {
                         MetadataTable mt = null;
-                        
-                        if (mdb.Tables.TryRemove(change,out mt))
+
+                        if (mdb.Tables.TryRemove(change, out mt))
                         {
                             RaiseUpdateEvent(0, string.Format("{0} removed from Metadata pending update", change));
                         }
@@ -127,7 +128,7 @@ namespace TinySql.Metadata
             }
 
             double t = 0;
-            double total = Changes != null ? Changes.Length : Tables != null ? Tables.Length : SqlDatabase.Tables.Count; 
+            double total = Changes != null ? Changes.Length : Tables != null ? Tables.Length : SqlDatabase.Tables.Count;
             foreach (Microsoft.SqlServer.Management.Smo.Table table in SqlDatabase.Tables)
             {
                 if (Tables == null || Tables.Contains(table.Name))
@@ -154,9 +155,33 @@ namespace TinySql.Metadata
 
         }
 
+        private string GetExtendedProperty(string PropertyName, ExtendedPropertyCollection props)
+        {
+            if (props.Count > 0)
+            {
+                string key = "TinySql." + PropertyName;
+                if (props.Contains(key))
+                {
+                    return Convert.ToString(props[key].Value);
+                }
+            }
+            return null;
+        }
+
+        private string[] GetExtendedProperty(string PropertyName, ExtendedPropertyCollection props, char[] separators)
+        {
+            string value = GetExtendedProperty(PropertyName, props);
+            if (value != null)
+            {
+                return value.Split(separators, StringSplitOptions.RemoveEmptyEntries);
+            }
+            return null;
+        }
+
         private MetadataTable BuildMetadata(MetadataDatabase mdb, Microsoft.SqlServer.Management.Smo.Table table, bool PrimaryKeyIndexOnly = true, bool SelfJoin = false)
         {
             MetadataTable mt = null;
+            List<VirtualForeignKey> VirtualKeys = new List<VirtualForeignKey>();
             table.Refresh();
             if (mdb.Tables.TryGetValue(table.Name, out mt))
             {
@@ -168,8 +193,20 @@ namespace TinySql.Metadata
                 ID = table.ID,
                 Schema = table.Schema,
                 Name = table.Name,
-                Parent = mdb
+                //Parent = mdb
             };
+
+            string[] values = GetExtendedProperty("DisplayName", table.ExtendedProperties, new char[] { '\r', '\n' });
+            if (values != null)
+            {
+                foreach (string value in values)
+                {
+                    string[] v = value.Split(new char[] { '=' }, StringSplitOptions.RemoveEmptyEntries);
+                    mt.DisplayNames.TryAdd(Convert.ToInt32(v[0]), v[1]);
+                }
+            }
+
+
 
 
             foreach (Microsoft.SqlServer.Management.Smo.Column column in table.Columns)
@@ -178,7 +215,7 @@ namespace TinySql.Metadata
                 {
                     ID = column.ID,
                     Parent = mt,
-                    Database = mdb,
+                    //Database = mdb,
                     Name = column.Name,
                     Collation = column.Collation,
                     Default = column.Default,
@@ -193,10 +230,30 @@ namespace TinySql.Metadata
                     IsRowGuid = column.RowGuidCol
                 };
                 BuildColumnDataType(col, column);
-                col = mt.Columns.AddOrUpdate(col.Name, col, (key, existing) =>
+
+                values = GetExtendedProperty("DisplayName", column.ExtendedProperties, new char[] { '\r', '\n' });
+                if (values != null)
                 {
-                    return col;
-                });
+                    foreach (string value in values)
+                    {
+                        string[] v = value.Split(new char[] { '=' }, StringSplitOptions.RemoveEmptyEntries);
+                        col.DisplayNames.TryAdd(Convert.ToInt32(v[0]), v[1]);
+                    }
+                }
+
+                col.IncludeColumns = GetExtendedProperty("IncludeColumns", column.ExtendedProperties, new char[] { ',' });
+
+                values = GetExtendedProperty("FK", column.ExtendedProperties, new char[] { '\r', '\n' });
+                if (values != null)
+                {
+                    VirtualKeys.Add(new VirtualForeignKey() { Column = col, values = values });
+                    col.IsForeignKey = true;
+                }
+
+
+
+                mt.Columns.AddOrUpdate(col.Name, col, (k, v) => { return col; });
+
 
             }
 
@@ -248,8 +305,6 @@ namespace TinySql.Metadata
                     {
                         mfk.ColumnReferences.Add(new MetadataColumnReference()
                         {
-                            Parent = mfk,
-                            Database = mdb,
                             Name = cc.Name,
                             Column = mt[cc.Name],
                             ReferencedColumn = mtref[cc.ReferencedColumn]
@@ -262,11 +317,74 @@ namespace TinySql.Metadata
                 }
             }
 
+            if (VirtualKeys.Count > 0)
+            {
+                BuildVirtualKeys(VirtualKeys, mt, mdb, PrimaryKeyIndexOnly);
+            }
+
             mdb.Tables.AddOrUpdate(mt.Schema + "." + mt.Name, mt, (key, existing) =>
             {
                 return mt;
             });
             return mt;
+        }
+
+        private void BuildVirtualKeys(List<VirtualForeignKey> keys, MetadataTable mt, MetadataDatabase mdb, bool PrimaryKeyIndexOnly)
+        {
+            foreach (VirtualForeignKey vfk in keys)
+            {
+                MetadataForeignKey mfk = new MetadataForeignKey()
+                {
+                    ID = 0,
+                    Name = vfk.values[0].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries)[0],
+                    ReferencedKey = "",
+                    ReferencedTable = vfk.values[0].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries)[1],
+                    ReferencedSchema = vfk.values[0].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries)[2],
+                    Parent = mt,
+                    IsVirtual = true
+                };
+                MetadataTable mtref = null;
+                if (!mdb.Tables.TryGetValue(mfk.ReferencedSchema + "." + mfk.ReferencedTable, out mtref))
+                {
+                    bool self = false;
+                    if (mfk.ReferencedSchema == mt.Schema && mfk.ReferencedTable == mt.Name)
+                    {
+                        self = true;
+                    }
+                    mtref = BuildMetadata(mdb, mfk.ReferencedTable, mfk.ReferencedSchema, PrimaryKeyIndexOnly, self);
+                }
+                for (int i = 1; i < vfk.values.Length; i++)
+                {
+                    MetadataColumnReference mcf = new MetadataColumnReference()
+                    {
+                        ReferencedColumn = mtref[vfk.values[i].Split(new char[] { '=' }, StringSplitOptions.RemoveEmptyEntries)[1]],
+                    };
+                    string from = vfk.values[i].Split(new char[] { '=' }, StringSplitOptions.RemoveEmptyEntries)[0];
+                    if (from.StartsWith("\""))
+                    {
+                        MetadataColumn mcVirtual = new MetadataColumn()
+                        {
+                            Name = from,
+                            IsForeignKey = true,
+                            ID = 0,
+                            SqlDataType = SqlDbType.NVarChar,
+                            Nullable = false,
+                            Length = 0,
+                            IsComputed = true,
+                            DataType = typeof(string),
+                        };
+                        mcf.Column = mcVirtual;
+                        mcf.Name = from;
+                    }
+                    else
+                    {
+                        mcf.Column = mt[from];
+                        mcf.Name = mcf.Column.Name;
+                    }
+                    mfk.ColumnReferences.Add(mcf);
+                }
+                mt.ForeignKeys.AddOrUpdate(mfk.Name, mfk, (k, v) => { return mfk; });
+            }
         }
 
         public MetadataTable BuildMetadata(MetadataDatabase mdb, string TableName, string Schema = "dbo", bool PrimaryKeyIndexOnly = true, bool SelfJoin = false)
@@ -570,7 +688,7 @@ namespace TinySql.Metadata
             {
                 if (_SqlDatabase == null)
                 {
-                    string db=ConnectionBuilder.InitialCatalog;
+                    string db = ConnectionBuilder.InitialCatalog;
                     if (!string.IsNullOrEmpty(ConnectionBuilder.AttachDBFilename))
                     {
                         db = Path.GetFileNameWithoutExtension(ConnectionBuilder.AttachDBFilename);
@@ -597,6 +715,13 @@ namespace TinySql.Metadata
 
 
 
+
+    }
+
+    internal class VirtualForeignKey
+    {
+        public MetadataColumn Column = null;
+        public string[] values = null;
 
     }
 }

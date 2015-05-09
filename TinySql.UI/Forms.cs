@@ -303,6 +303,7 @@ namespace TinySql.UI
 
     public class FormSection
     {
+        public string Legend { get; set; }
         private string _ID = "section" + DateTime.Now.Ticks.ToString();
         public string ID
         {
@@ -350,12 +351,19 @@ namespace TinySql.UI
 
         public FieldModel GetFieldModel(FormField Field, MetadataTable Model, RowData Data)
         {
-            MetadataColumn mc;
-            if (Model.Columns.TryGetValue(Field.Name, out mc))
+            MetadataColumn mc = null;
+            MetadataTable mt = Model;
+            if (Field.TableName != Model.Fullname)
             {
-                return new FieldModel(Field, mc, Data.Column(Field.Name), SectionLayout);
+                 mt = SqlBuilder.DefaultMetadata.FindTable(Field.TableName);
             }
-            throw new InvalidOperationException("Cannot get a model for " + Field.Name);
+            if (!mt.Columns.TryGetValue(Field.Name, out mc))
+            {
+                throw new InvalidOperationException("Cannot get a model for " + Field.Name);
+            }
+            
+            return new FieldModel(Field, mc, Data.Column(Field.Alias ?? Field.Name), SectionLayout);
+            
         }
     }
 
@@ -365,6 +373,9 @@ namespace TinySql.UI
         public string Name { get; set; }
 
         public string DisplayName { get; set; }
+
+        public string Alias { get; set; }
+        public string TableName { get; set; }
 
         public string NullText { get; set; }
 

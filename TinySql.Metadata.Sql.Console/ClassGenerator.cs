@@ -78,7 +78,17 @@ namespace TinySql.Metadata.Sql.CommandLine
 
             if (mc.IsForeignKey)
             {
-                List<MetadataForeignKey> FKs = new List<MetadataForeignKey>(mt.FindForeignKeys(mc));
+                List<MetadataForeignKey> FKs = new List<MetadataForeignKey>();
+                try
+                {
+                    IEnumerable<MetadataForeignKey> fks = mt.FindForeignKeys(mc);
+                    FKs.AddRange(fks);
+                }
+                catch (Exception ex)
+                {
+                    throw ex;
+                }
+                
                 if (FKs.Count == 0)
                 {
                     throw new InvalidOperationException(string.Format("The foreign key for Column {0} in table {1} cannot be resolved to one key", mc.Name, mt.Fullname));

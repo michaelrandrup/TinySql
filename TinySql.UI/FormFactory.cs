@@ -30,7 +30,7 @@ namespace TinySql.UI
             }
         }
 
-        public Form GetForm(MetadataTable Table, FormTypes FormType)
+        public Form GetForm(MetadataTable Table, FormTypes FormType, FormLayouts FormLayout = FormLayouts.Vertical, SectionLayouts SectionLayout = SectionLayouts.VerticalTwoColumns)
         {
             if (FormType == FormTypes.Mobile)
             {
@@ -43,7 +43,7 @@ namespace TinySql.UI
             }
             else
             {
-                f = BuildDefaultForm(Table);
+                f = BuildForm(Table, FormType, FormLayout,SectionLayout);
                 if (PrimaryForms.TryAdd(Table.Fullname,f))
                 {
                     return f;
@@ -55,37 +55,106 @@ namespace TinySql.UI
             }
         }
 
-        public static Form BuildDefaultForm(MetadataTable Table)
+        public Form BuildForm(SqlBuilder Builder, FormLayouts FormLayout = FormLayouts.Vertical, SectionLayouts SectionLayout = SectionLayouts.Vertical)
         {
             Form form = new Form();
+            form.FormLayout = FormLayout;
+            for (int i = 0; i < Builder.Tables.Count; i++)
+            {
+                FormSection section = new FormSection() { SectionLayout = SectionLayout };
+                Table table = Builder.Tables[i];
+                MetadataTable mt = Builder.Metadata.FindTable(table.FullName);
+                // section.Legend = StringMap.Default.GetText(SqlBuilder.DefaultCulture.LCID, mt.Fullname, mt.Name);
+                section.Legend = mt.DisplayName;
+                string TableName = mt.Fullname;
+                if (i == 0)
+                {
+                    form.TitleColumn = mt.GuessTitleColumn();
+                }
+                foreach (Field field in table.FieldList)
+                {
+                    string name = field.Name;
+                    MetadataColumn mc;
+                    if (mt.Columns.TryGetValue(name, out mc))
+                    {
+                        MetadataColumn includedFrom = mt.Columns.Values.FirstOrDefault(x => x.IncludeColumns != null && x.IncludeColumns.Contains(field.Alias ?? field.Name));
+                        BuildField(mc, TableName, field.Alias, section, includedFrom, i > 0);
+                    }
+                }
+                form.Sections.Add(section);
+            }
+            
+            return form;
+        }
+
+        public Form BuildForm(RowData Data, FormLayouts FormLayout = FormLayouts.Vertical, SectionLayouts SectionLayout = SectionLayouts.Vertical, MetadataTable Table = null)
+        {
+            if (Table == null)
+            {
+                Table = Data.Metadata;
+                if (Table == null)
+                {
+                    throw new ArgumentException("The Metadata Table argument is null, and metadata cannot be retrieved from the RowData object","Table");
+                }
+            }
+            Form form = new Form();
+            form.FormLayout = FormLayout;
+            form.TitleColumn = Table.GuessTitleColumn();
+            
+            FormSection section = new FormSection();
+            section.SectionLayout = SectionLayout;
+            string[] Columns = Data.Columns;
+            string TableName = Table.Fullname;
+            foreach (string s in Columns)
+            {
+                MetadataColumn mc;
+                if (Table.Columns.TryGetValue(s,out mc))
+                {
+                    BuildField(mc, TableName, null, section, null, false);
+                }
+            }
+            form.Sections.Add(section);
+            form.Initialize(Data, Table);
+            return form;
+        }
+
+        public Form BuildForm(MetadataTable Table, FormTypes FormType, FormLayouts FormLayout = FormLayouts.Vertical, SectionLayouts SectionLayout = SectionLayouts.VerticalTwoColumns)
+        {
+            Form form = new Form();
+            form.FormLayout = FormLayout;
             form.TitleColumn = Table.GuessTitleColumn();
             if (form.TitleColumn == null)
             {
                 form.TitleColumn = Table.PrimaryKey.Columns.First().Name;
             }
-            FormSection section = new FormSection();
+            FormSection section = new FormSection() { SectionLayout = SectionLayout };
+            string TableName = Table.Fullname;
             foreach (MetadataColumn col in Table.Columns.Values)
             {
-                if (col.IsRowGuid)
-                {
-                    continue;
-                }
-                FormField field = new FormField()
-                {
-                    DisplayName = col.GetDisplayName(Table.Fullname),
-                    ID = col.Name,
-                    Name = col.Name,
-                    NullText = "Enter " + col.Name,
-                    IsReadOnly = col.IsReadOnly || col.IsPrimaryKey
-                };
-                ResolveFieldType(col,field);
-                section.Fields.Add(field);
+                BuildField(col, TableName, null, section, null, false);
             }
             form.Sections.Add(section);
-
-            // Cache the form
-
             return form;
+        }
+
+        private static void BuildField(MetadataColumn col, string TableName, string Alias, FormSection section, MetadataColumn IncludeFrom, bool ForceReadOnly = false)
+        {
+            if (col.IsRowGuid)
+            {
+                return;
+            }
+            FormField field = new FormField()
+            {
+                DisplayName = (IncludeFrom != null ? IncludeFrom.DisplayName + " " : "") + col.DisplayName,
+                ID = col.Name,
+                Name = col.Name,
+                Alias = Alias,
+                TableName = TableName,
+                NullText = "Enter " + col.Name,
+                IsReadOnly = ForceReadOnly || col.IsReadOnly || col.IsPrimaryKey
+            };
+            ResolveFieldType(col, field);
+            section.Fields.Add(field);
         }
 
         private static void ResolveFieldType(MetadataColumn col, FormField field)
