@@ -16,16 +16,7 @@ namespace TinySql.UI
 
     public static class MetadataExtensions
     {
-        public static string[] TitleColumns = new string[] { "name", "title", "description", "fullname" };
-        public static string GuessTitleColumn(this MetadataTable Table)
-        {
-            foreach (string s in TitleColumns)
-            {
-                MetadataColumn mc = Table.Columns.Values.First(x => x.Name.Equals("name", StringComparison.OrdinalIgnoreCase));
-                if (mc != null) { return mc.Name; }
-            }
-            return Table.PrimaryKey.Columns.First().Name;
-        }
+        
 
         public static string GetDisplayName(this MetadataColumn mc, string TableName,int? LCID = null)
         {

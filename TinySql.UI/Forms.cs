@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -38,22 +39,29 @@ namespace TinySql.UI
         TextArea = 6
     }
 
+    public enum LookupSources : int
+    {
+        NameValueCollection = 1,
+        SqlBuilder = 2
+    }
+
     public enum InputTypes
     {
-        text, 
-        password, 
-        datetime, 
-        datetime_local, 
-        date, 
-        month, 
-        time, 
-        week, 
-        number, 
-        email, 
-        url, 
-        search, 
-        tel, 
-        color
+        text,
+        password,
+        datetime,
+        datetime_local,
+        date,
+        month,
+        time,
+        week,
+        number,
+        email,
+        url,
+        search,
+        tel,
+        color,
+        file
     }
 
     public class FormDefaults
@@ -153,9 +161,6 @@ namespace TinySql.UI
             set { _CssInputControlLayout = value; }
         }
 
-
-
-
         private string _CssFormSection = "row";
 
         public string CssFormSection
@@ -189,6 +194,24 @@ namespace TinySql.UI
             set { _CssFieldGroup = value; }
         }
 
+
+        private string _CssLookupButtonClass = "glyphicon glyphicon-option-horizontal";
+        public string CssLookupButtonClass
+        {
+            get { return _CssLookupButtonClass; }
+            set { _CssLookupButtonClass = value; }
+        }
+
+        private string _CssLookupButtonClearClass = "glyphicon glyphicon-remove";
+
+        public string CssLookupButtonClearClass
+        {
+            get { return _CssLookupButtonClearClass; }
+            set { _CssLookupButtonClearClass = value; }
+        }
+
+
+
         private string _CssSectionView = "~/Views/TinySql/Details/_Section.cshtml";
 
         public string CssSectionView
@@ -196,6 +219,8 @@ namespace TinySql.UI
             get { return _CssSectionView; }
             set { _CssSectionView = value; }
         }
+
+
 
 
     }
@@ -297,7 +322,10 @@ namespace TinySql.UI
             set { _CssSectionView = value; }
         }
 
-
+        public FormField GetFormFieldByID(string ID)
+        {
+            return this.Sections.SelectMany(x => x.Fields).FirstOrDefault(x => x.ID.Equals(ID, StringComparison.OrdinalIgnoreCase));
+        }
 
     }
 
@@ -355,16 +383,85 @@ namespace TinySql.UI
             MetadataTable mt = Model;
             if (Field.TableName != Model.Fullname)
             {
-                 mt = SqlBuilder.DefaultMetadata.FindTable(Field.TableName);
+                mt = SqlBuilder.DefaultMetadata.FindTable(Field.TableName);
             }
             if (!mt.Columns.TryGetValue(Field.Name, out mc))
             {
                 throw new InvalidOperationException("Cannot get a model for " + Field.Name);
             }
-            
+
             return new FieldModel(Field, mc, Data.Column(Field.Alias ?? Field.Name), SectionLayout);
-            
+
         }
+    }
+
+    public class LookupFormField : FormField
+    {
+        public LookupFormField()
+        {
+            base.FieldType = FieldTypes.LookupInput;
+        }
+        public override FieldTypes FieldType
+        {
+            get
+            {
+                return base.FieldType;
+            }
+            set
+            {
+                if (value == FieldTypes.LookupInput || value == FieldTypes.SelectList)
+                {
+                    base.FieldType = value;
+                    //throw new ArgumentException("LookupField must be either LookupInput or SelectList", "FieldType");
+                }
+                
+            }
+        }
+
+        private LookupSources _LookupSource = LookupSources.NameValueCollection;
+
+        public LookupSources LookupSource
+        {
+            get { return _LookupSource; }
+            set { _LookupSource = value; }
+        }
+
+        private NameValueCollection _Collection = null;
+
+        public NameValueCollection Collection
+        {
+            get { return _Collection; }
+            set { _Collection = value; }
+        }
+
+        private SqlBuilder _Builder = null;
+
+        public SqlBuilder Builder
+        {
+            get { return _Builder; }
+            set { _Builder = value; }
+        }
+
+        public string DisplayFieldID { get; set; }
+        public string DisplayFieldName { get; set; }
+
+        private string _CssLookupButtonClass = null;
+        public string CssLookupButtonClass
+        {
+            get { return _CssLookupButtonClass ?? FormDefaults.Default.CssLookupButtonClass; }
+            set { _CssLookupButtonClass = value; }
+        }
+
+        private string _CssLookupButtonClearClass = null;
+
+        public string CssLookupButtonClearClass
+        {
+            get { return _CssLookupButtonClearClass ?? FormDefaults.Default.CssLookupButtonClearClass; }
+            set { _CssLookupButtonClearClass = value; }
+        }
+
+
+
     }
 
     public class FormField
@@ -387,7 +484,7 @@ namespace TinySql.UI
             set { _CssFieldGroup = value; }
         }
 
-        
+
 
         private string _CssLabelLayoutVertical = null;
         public string CssLabelLayoutVertical
@@ -417,13 +514,13 @@ namespace TinySql.UI
                 case SectionLayouts.Vertical:
                 default:
                     return CssLabelLayoutVertical ?? FormDefaults.Default.CssLabelLayoutVertical;
-                    
+
                 case SectionLayouts.HorizontalOneColumn:
                     return CssLabelLayoutHorizontalOneColumn ?? FormDefaults.Default.CssLabelLayoutHorizontalOneColumn;
 
                 case SectionLayouts.HorizontalTwoColumns:
                     return CssLabelLayoutHorizontalTwoColumns ?? FormDefaults.Default.CssLabelLayoutHorizontalTwoColumns;
-                
+
             }
         }
 
@@ -501,7 +598,7 @@ namespace TinySql.UI
 
         private FieldTypes _FieldType = FieldTypes.Input;
 
-        public FieldTypes FieldType
+        public virtual FieldTypes FieldType
         {
             get { return _FieldType; }
             set { _FieldType = value; }

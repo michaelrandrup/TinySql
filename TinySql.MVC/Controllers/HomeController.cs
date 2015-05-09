@@ -10,6 +10,7 @@ using TinySql.MVC.Models;
 using TinySql.UI;
 
 
+
 namespace TinySql.MVC.Controllers
 {
     public class HomeController : Controller
@@ -40,7 +41,7 @@ namespace TinySql.MVC.Controllers
             //    .Builder();
 
             SqlBuilder builder = SqlBuilder.Select()
-                .From("Contact").Columns("ContactID","Name","Title","WorkEmail")
+                .From("Contact").Columns("ContactID","Name","Title","WorkEmail", "JobfunctionID", "JobpositionID","StateID")
                 .WithMetadata()
                 .InnerJoin("AccountID")
                 .From("Contact").WithMetadata().LeftJoin("JobfunctionID")
@@ -50,6 +51,14 @@ namespace TinySql.MVC.Controllers
             
             ResultTable result = builder.Execute();
             Form model = FormFactory.Default.BuildForm(builder);
+
+            MetadataColumn mc;
+            if (table.Columns.TryGetValue("JobfunctionID", out mc))
+            {
+                
+            }
+            
+
             model.Initialize(result.First());
             //model.FormLayout = FormLayouts.Horizontal;
             //model.CssFormLayout = "form-horizontal";

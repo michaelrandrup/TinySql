@@ -109,6 +109,7 @@ namespace TinySql.Metadata
 
 
         #region Extended Properties
+
         private ConcurrentDictionary<int, string> _DisplayNames = new ConcurrentDictionary<int, string>();
 
         public ConcurrentDictionary<int, string> DisplayNames
@@ -132,6 +133,13 @@ namespace TinySql.Metadata
                 return value;
             }
             return this.Name;
+        }
+
+        private string _TitleColumn = null;
+        public string TitleColumn
+        {
+            get { return _TitleColumn; }
+            set { _TitleColumn = value; }
         }
 
         

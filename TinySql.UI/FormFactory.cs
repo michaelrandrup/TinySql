@@ -37,14 +37,14 @@ namespace TinySql.UI
                 throw new NotSupportedException("Mobile forms are not supported");
             }
             Form f;
-            if (PrimaryForms.TryGetValue(Table.Fullname,out f))
+            if (PrimaryForms.TryGetValue(Table.Fullname, out f))
             {
                 return f;
             }
             else
             {
-                f = BuildForm(Table, FormType, FormLayout,SectionLayout);
-                if (PrimaryForms.TryAdd(Table.Fullname,f))
+                f = BuildForm(Table, FormType, FormLayout, SectionLayout);
+                if (PrimaryForms.TryAdd(Table.Fullname, f))
                 {
                     return f;
                 }
@@ -83,7 +83,7 @@ namespace TinySql.UI
                 }
                 form.Sections.Add(section);
             }
-            
+
             return form;
         }
 
@@ -94,13 +94,13 @@ namespace TinySql.UI
                 Table = Data.Metadata;
                 if (Table == null)
                 {
-                    throw new ArgumentException("The Metadata Table argument is null, and metadata cannot be retrieved from the RowData object","Table");
+                    throw new ArgumentException("The Metadata Table argument is null, and metadata cannot be retrieved from the RowData object", "Table");
                 }
             }
             Form form = new Form();
             form.FormLayout = FormLayout;
             form.TitleColumn = Table.GuessTitleColumn();
-            
+
             FormSection section = new FormSection();
             section.SectionLayout = SectionLayout;
             string[] Columns = Data.Columns;
@@ -108,7 +108,7 @@ namespace TinySql.UI
             foreach (string s in Columns)
             {
                 MetadataColumn mc;
-                if (Table.Columns.TryGetValue(s,out mc))
+                if (Table.Columns.TryGetValue(s, out mc))
                 {
                     BuildField(mc, TableName, null, section, null, false);
                 }
@@ -143,16 +143,30 @@ namespace TinySql.UI
             {
                 return;
             }
-            FormField field = new FormField()
+            FormField field = null;
+
+            if (col.IsForeignKey)
             {
-                DisplayName = (IncludeFrom != null ? IncludeFrom.DisplayName + " " : "") + col.DisplayName,
-                ID = col.Name,
-                Name = col.Name,
-                Alias = Alias,
-                TableName = TableName,
-                NullText = "Enter " + col.Name,
-                IsReadOnly = ForceReadOnly || col.IsReadOnly || col.IsPrimaryKey
-            };
+                field = new LookupFormField()
+                {
+                    LookupSource = LookupSources.SqlBuilder,
+                    Builder = col.ToSqlBuilder()
+                };
+            }
+            else
+            {
+                field = new FormField();
+            }
+
+
+            field.DisplayName = (IncludeFrom != null ? IncludeFrom.DisplayName + " " : "") + col.DisplayName;
+            field.ID = col.Name;
+            field.Name = col.Name;
+            field.Alias = Alias;
+            field.TableName = TableName;
+            field.NullText = "Enter " + col.Name;
+            field.IsReadOnly = ForceReadOnly || col.IsReadOnly || col.IsPrimaryKey;
+
             ResolveFieldType(col, field);
             section.Fields.Add(field);
         }
@@ -233,7 +247,7 @@ namespace TinySql.UI
             // Special cases
             if (col.IsForeignKey)
             {
-                field.FieldType = FieldTypes.LookupInput;
+                field.FieldType = FieldTypes.SelectList;
             }
 
         }
