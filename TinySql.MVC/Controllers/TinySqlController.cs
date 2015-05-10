@@ -7,6 +7,7 @@ using TinySql.MVC.Models;
 using TinySql.Serialization;
 using TinySql;
 using TinySql.Metadata;
+using TinySql.UI;
 
 namespace TinySql.MVC.Controllers
 {
@@ -17,6 +18,27 @@ namespace TinySql.MVC.Controllers
         {
             return View();
         }
+
+        public PartialViewResult Edit(string Id)
+        {
+
+            decimal pk = Convert.ToDecimal(Id);
+            MetadataTable table = SqlBuilder.DefaultMetadata.FindTable("Contact");
+            SqlBuilder builder = SqlBuilder.Select()
+                .From("Contact").Columns("ContactID", "Name", "Title", "WorkEmail", "JobfunctionID", "JobpositionID", "StateID")
+                .WithMetadata()
+                .AutoJoin("AccountID")
+                .From("Contact").WithMetadata().AutoJoin("JobfunctionID")
+                .From("Contact").WithMetadata().AutoJoin("JobpositionID")
+                .Where<decimal>("Contact", "ContactID", SqlOperators.Equal, pk)
+                .Builder();
+
+            ResultTable result = builder.Execute();
+            Form model = FormFactory.Default.BuildForm(builder);
+            model.Initialize(result.First());
+            return PartialView("~/Views/TinySql/Details/dialog.cshtml",model);
+        }
+
 
 
         [HttpPost]
@@ -65,8 +87,8 @@ namespace TinySql.MVC.Controllers
                 .WithMetadata().InnerJoin("AccountID")
                 .Column("Name", "AccountName")
                 .From("Contact")
-                .Where<string>("Contact","WorkEmail", SqlOperators.NotNull,null)
-                .And<string>("Account","AccountID", SqlOperators.NotNull,null)
+                //.Where<string>("Contact","WorkEmail", SqlOperators.NotNull,null)
+                //.And<string>("Account","AccountID", SqlOperators.NotNull,null)
                 .Builder();
 
             ResultTable result = builder.Execute(30, false, ResultTable.DateHandlingEnum.ConvertToDate);

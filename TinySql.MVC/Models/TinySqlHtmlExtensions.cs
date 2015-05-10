@@ -9,6 +9,11 @@ namespace TinySql.UI
 {
     public static class TinySqlExtensions
     {
+        public static MvcHtmlString RegisterTinySqlPage(this HtmlHelper helper)
+        {
+            string html = "<div id=\"tinysql\"></div>";
+            return MvcHtmlString.Create(html);
+        }
         public static MvcHtmlString TinySqlLabel(this HtmlHelper helper, FieldModel model)
         {
 

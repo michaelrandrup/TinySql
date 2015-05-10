@@ -1,5 +1,6 @@
 ﻿@using TinySql
 @using TinySql.Metadata
+@using TinySql.UI
 @model ResultTable
 @{
     ViewBag.Title = "Contacts";
@@ -46,3 +47,6 @@
 @section styles {
     @Styles.Render("~/content/dataTables")
 }
+
+
+@Html.RegisterTinySqlPage()

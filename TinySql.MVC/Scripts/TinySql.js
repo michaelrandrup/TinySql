@@ -27,9 +27,12 @@
     });
 
 
+    $('table tbody').on('dblclick', 'tr', function () {
+        PostBack(table.cells(this,0).data()[0]);
+    });
+
     
     $('table tbody').on('click', 'tr', function () {
-        PostBack(table.row(this));
         console.log(table.row(this).data());
         console.log(table.cell(table.row(this).toJQuery(), 0).data());
         if ($(this).hasClass('selected')) {
@@ -42,28 +45,45 @@
         }
     });
 
-    function PostBack(row) {
-        var d = row.data();
+    function PostBack(cell) {
+        // var d = row.data();
         $.ajax({
-            url: "/TinySql/Update",
-            data: { rowData: JSON.stringify(d) },
-            dataType: "text",
+            url: "/TinySql/Edit",
+            data: {Id: cell },
+            //dataType: "json",
             method: "POST",
             cache: false,
-            accepts: "application/json",
-            contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
-            //accepts: "application/json",
-            success: function (data,jqXhr) {
+            //accepts: "text/html",
+            //contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+            success: function (data, jqXhr) {
                 if (data != null) {
-                    row.data(JSON.parse(data)).draw();
-                    // alert("Row was updated");
-                    // window.location.reload(true);
+                    $("#dialog").remove();
+                    $("#tinysql").append(data);
+                    $("#dialog").modal('show');
+                    //row.data(JSON.parse(data)).draw(false);
                 }
                 else {
                     alert("hmm?");
                 }
             }
         }).done(function (data) {
+        //$.ajax({
+        //    url: "/TinySql/Edit",
+        //    data: { rowData: JSON.stringify(d) },
+        //    dataType: "text",
+        //    method: "POST",
+        //    cache: false,
+        //    accepts: "application/json",
+        //    contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+        //    success: function (data,jqXhr) {
+        //        if (data != null) {
+        //            row.data(JSON.parse(data)).draw(false);
+        //        }
+        //        else {
+        //            alert("hmm?");
+        //        }
+        //    }
+        //}).done(function (data) {
             
             
         }).fail(function (data) {
