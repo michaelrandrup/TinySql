@@ -11,7 +11,13 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h4 id="title@(Model.ID)" class="model-title">@Model.Title</h4>
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span></button>            
+    @*<h4 id="title@(Model.ID)" class="model-title">@Model.Title</h4>*@
+                <span id="title@(Model.ID)" class="model-title lead">@Model.Title</span>
+                <span class="pull-right" style="padding-right:12px;">
+                    <button type="button" class="btn btn-success btn-xs">Save</button>
+                    <button type="button" class="btn btn-danger btn-xs">Delete</button>
+                </span>
             </div>
             <div class="modal-body">
                 @*<div class="container">*@

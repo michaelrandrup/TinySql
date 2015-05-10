@@ -20,13 +20,13 @@ namespace TinySql
             {
                if (CacheProvider.ResultCache.IsCached(Builder))
                 {
-                    return CacheProvider.ResultCache.ResultFromCahce(Builder);
+                    return CacheProvider.ResultCache.Get(Builder);
                 }
             }
             ResultTable result = new ResultTable(Builder, TimeoutSeconds, WithMetadata,DateHandling, Format);
             if (CacheProvider.UseResultCache)
             {
-                CacheProvider.ResultCache.AddToCache(Builder, result);
+                CacheProvider.ResultCache.Add(Builder, result);
             }
             return result;
             

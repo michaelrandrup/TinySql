@@ -350,6 +350,7 @@ namespace TinySql
                 return false;
             }
             LoadMetadata(mt, true);
+            _Columns = new List<string>(_OriginalValues.Keys);
             return true;
 
         }

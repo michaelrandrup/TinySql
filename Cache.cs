@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Caching;
@@ -6,22 +7,24 @@ using System.Text;
 
 namespace TinySql.Cache
 {
-    public interface IResultCacheProvider
-    {
-        ResultTable ResultFromCahce(SqlBuilder Builder);
-        void AddToCache(SqlBuilder Builder, ResultTable Result);
-        bool RemoveFromCache(SqlBuilder Builder);
+    #region interface and base cache classes
 
-        bool IsCached(SqlBuilder Builder);
+    public interface ICacheProvider<TKey, TValue>
+    {
+        TValue Get(TKey key);
+        void Add(TKey key, TValue value);
+        bool Remove(TKey key);
+
+        bool IsCached(TKey key);
 
         int CacheMinutes { get; set; }
         bool UseSlidingCache { get; set; }
 
     }
 
-    public abstract class ResultCacheProviderBase : IResultCacheProvider
+    public abstract class ResultCacheProvider : ICacheProvider<SqlBuilder,ResultTable>
     {
-        public ResultCacheProviderBase()
+        public ResultCacheProvider()
         {
             SetCachePolicy();
         }
@@ -47,7 +50,7 @@ namespace TinySql.Cache
 
 
 
-        public ResultTable ResultFromCahce(SqlBuilder Builder)
+        public ResultTable Get(SqlBuilder Builder)
         {
             string key = GetKey(Builder);
             if (MemoryCache.Default.Contains(key))
@@ -60,14 +63,14 @@ namespace TinySql.Cache
             }
         }
 
-        public void AddToCache(SqlBuilder Builder, ResultTable Result)
+        public void Add(SqlBuilder Builder, ResultTable Result)
         {
             string key = GetKey(Builder);
             CacheItem item = new CacheItem(key, Result);
             MemoryCache.Default.Add(item, CachePolicy);
         }
 
-        public bool RemoveFromCache(SqlBuilder Builder)
+        public bool Remove(SqlBuilder Builder)
         {
             try
             {
@@ -115,15 +118,50 @@ namespace TinySql.Cache
         }
     }
 
+    
 
-    public class DefaultResultCacheProvider : ResultCacheProviderBase
+    
+
+    #endregion
+
+
+
+    #region Default providers
+
+    public class DefaultResultCacheProvider : ResultCacheProvider
     {
 
     }
 
 
-    public class CacheProvider
+    #endregion
+
+
+    public sealed class CacheProvider
     {
+        #region ctor
+       
+        private static CacheProvider instance = null;
+        private CacheProvider()
+        {
+
+        }
+
+        public static CacheProvider Default
+        {
+            get
+            {
+                if (instance == null)
+                {
+                    instance = new CacheProvider();
+                }
+                return instance;
+            }
+        }
+        #endregion
+        
+        #region Result cache
+
         private static bool _UseResultCache = false;
 
         public static bool UseResultCache
@@ -132,10 +170,8 @@ namespace TinySql.Cache
             set { CacheProvider._UseResultCache = value; }
         }
 
-        
-
-        private static IResultCacheProvider instance = null;
-        public static IResultCacheProvider ResultCache
+        private static ResultCacheProvider ResultCacheInstance = null;
+        public static ResultCacheProvider ResultCache
         {
             get
             {
@@ -144,19 +180,20 @@ namespace TinySql.Cache
                     throw new InvalidOperationException("The Result Cache is not online. Set 'UseResultCache' to 'true'");
                 }
 
-                if (instance == null)
+                if (ResultCacheInstance == null)
                 {
-                    instance = new DefaultResultCacheProvider();
+                    ResultCacheInstance = new DefaultResultCacheProvider();
                 }
 
-                return instance;
+                return ResultCacheInstance;
             }
             set
             {
-                instance = value;
+                ResultCacheInstance = value;
             }
         }
 
+        #endregion
 
     }
 

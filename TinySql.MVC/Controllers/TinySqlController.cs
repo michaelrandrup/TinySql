@@ -30,7 +30,22 @@ namespace TinySql.MVC.Controllers
             ResultTable result = builder.Execute(30, false);
             if (result.Count == 1)
             {
-                return Content("Updated contact with id " + result.First().Column<decimal>("ContactID"),"application/text");
+                 builder = SqlBuilder.Select()
+                .From("Contact")
+                .Column("ContactID")
+                .Column("Name")
+                .Column("Telephone")
+                .Column("WorkEmail")
+                .Column("ModifiedOn")
+                .WithMetadata().InnerJoin("AccountID")
+                .Column("Name", "AccountName")
+                .From("Contact")
+                .Where<decimal>("Contact", "ContactID", SqlOperators.Equal,result.First().Column<decimal>("ContactID"))
+                .Builder();
+                
+                result = builder.Execute(30, false, ResultTable.DateHandlingEnum.ConvertToDate);
+                row = result.First();
+                return Content(SerializationExtensions.ToJson<dynamic>(row), "application/json");
             }
             return Content("Hmmmm...?","application/text");
         }

@@ -29,7 +29,7 @@
 
     
     $('table tbody').on('click', 'tr', function () {
-        PostBack(table.row(this).data());
+        PostBack(table.row(this));
         console.log(table.row(this).data());
         console.log(table.cell(table.row(this).toJQuery(), 0).data());
         if ($(this).hasClass('selected')) {
@@ -42,19 +42,22 @@
         }
     });
 
-    function PostBack(d) {
+    function PostBack(row) {
+        var d = row.data();
         $.ajax({
             url: "/TinySql/Update",
             data: { rowData: JSON.stringify(d) },
             dataType: "text",
             method: "POST",
             cache: false,
+            accepts: "application/json",
             contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
             //accepts: "application/json",
             success: function (data,jqXhr) {
                 if (data != null) {
-                    alert(data);
-                    window.location.reload(true);
+                    row.data(JSON.parse(data)).draw();
+                    // alert("Row was updated");
+                    // window.location.reload(true);
                 }
                 else {
                     alert("hmm?");
