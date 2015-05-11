@@ -29,11 +29,18 @@ namespace TinySql.UI
         {
             string ctrl = "";
             string ReadOnly = model.Field.IsReadOnly ? "readonly" : "";
-            if (model.Field.FieldType == FieldTypes.Input)
+            if (model.Field.IsHidden)
+            {
+                ctrl = string.Format("<input type=\"hidden\" name=\"{0}\" value=\"{1}\" >",
+                    model.Field.Name,                                       // 0
+                    model.Data == null ? "" : Convert.ToString(model.Data)  // 1
+                    );
+            }
+            else if (model.Field.FieldType == FieldTypes.Input)
             {
                 ctrl = string.Format("<input type=\"{4}\" class=\"{2}\" name=\"{1}\" id=\"input{0}\" placeholder=\"Email\" value=\"{5}\" {6} >",
                     model.Field.ID,                                         // 0
-                    model.Field.Name,                                       // 1
+                    model.Field.TableName + "_" + model.Field.Name,                                       // 1
                     model.Field.CssInputControlLayout,                      // 2
                     model.Field.NullText,                                   // 3
                     model.Field.InputType.ToString().Replace("_", "-"),      // 4
@@ -75,7 +82,7 @@ namespace TinySql.UI
                     }
                     ctrl = string.Format("<select id=\"{0}\" name=\"{1}\" class=\"{2}\" {3} >{4}</select>",
                     lookup.ID,                      // 0
-                    lookup.Name,                    // 1
+                    lookup.TableName + "_" + lookup.Name,                    // 1
                     lookup.CssInputControlLayout,   // 2
                     ReadOnly,                       // 3
                     ctrlItems                       // 4  

@@ -206,6 +206,22 @@ namespace TinySql.Metadata
                 }
             }
 
+            values = GetExtendedProperty("Lists", table.ExtendedProperties, new char[] { '\r', '\n' });
+            if (values != null)
+            {
+                foreach (string value in values)
+                {
+                    string[] v = value.Split(new char[] { '=' }, StringSplitOptions.RemoveEmptyEntries);
+                    List<string> v2 = v[1].Split(',').ToList();
+                    if (!mt.ListDefinitions.TryAdd(v[0],v2))
+                    {
+                        throw new InvalidOperationException(string.Format("The TinySql.Lists extended property is invalid for the table '{0}'", table.Name));
+                    }
+                }
+            }
+
+
+
 
 
 
@@ -240,6 +256,10 @@ namespace TinySql.Metadata
                         col.DisplayNames.TryAdd(Convert.ToInt32(v[0]), v[1]);
                     }
                 }
+
+               
+
+                
 
                 col.IncludeColumns = GetExtendedProperty("IncludeColumns", column.ExtendedProperties, new char[] { ',' });
 

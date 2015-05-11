@@ -22,7 +22,6 @@ namespace TinySql.Attributes
         readonly string foreignKeyName;
         readonly string toField;
 
-        // This is a positional argument
         public FK(string toTable, string toField = null, string toSchema = null, string foreignKeyName = null)
         {
             this.toTable = toTable;

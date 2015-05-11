@@ -1,4 +1,7 @@
-﻿@{
+﻿@using TinySql
+@using TinySql.Metadata
+@using TinySql.UI
+@{
     ViewBag.Title = "Home Page";
 }
 
@@ -8,7 +11,13 @@
     <p><a href="http://asp.net" class="btn btn-primary btn-lg">Learn more &raquo;</a></p>
 </div>
 
-<div class="row">
+<div class="container-fluid">
+    <div class="row">
+        <div id="tinysqllist" class="col-md-12"></div>
+    </div>
+</div>
+
+@*<div class="row">
     <div class="col-md-4">
         <h2>Getting started</h2>
         <p>
@@ -28,4 +37,15 @@
         <p>You can easily find a web hosting company that offers the right mix of features and price for your applications.</p>
         <p><a class="btn btn-default" href="http://go.microsoft.com/fwlink/?LinkId=301867">Learn more &raquo;</a></p>
     </div>
-</div>
+</div>*@
+
+@section scripts {
+    @Scripts.Render("~/bundles/dataTables")
+    @Scripts.Render("~/Scripts/TinySql.js")
+    @Scripts.Render("~/Scripts/Index.js")
+    
+}
+
+@section styles {
+    @Styles.Render("~/content/dataTables")
+}

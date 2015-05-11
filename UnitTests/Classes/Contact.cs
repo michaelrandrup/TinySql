@@ -11,15 +11,16 @@ namespace TinySql.Classes
 		[FK("Account","AccountID","dbo","Account_AccountID_Contact_AcountID")]
 		public Nullable<Decimal>  AccountID { get; set; }
 
-		[FK("SystemUser","SystemUserID","dbo","FK_CreatedBy_SystemUser")]
 		public Decimal  CreatedBy { get; set; }
 
 		public DateTime  CreatedOn { get; set; }
 
 		public Decimal  DatasourceID { get; set; }
 
+		[FK("Checkkode","CheckID","dbo","FK_Contact_JobfunctionID_Checkkode")]
 		public Decimal  JobfunctionID { get; set; }
 
+		[FK("Checkkode","CheckID","dbo","FK_Contact_JobpositionID_Checkkode")]
 		public Decimal  JobpositionID { get; set; }
 
 		public String  Mobile { get; set; }

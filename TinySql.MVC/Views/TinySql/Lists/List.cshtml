@@ -1,0 +1,32 @@
+﻿@using TinySql
+@using TinySql.Metadata
+@using TinySql.UI
+@model ListBuilder
+
+
+<h2>@Model.Title</h2>
+<table class="table table-hover" data-table="@Model.TableName" data-listtype="@Model.ListType" data-listname="@Model.CustomName">
+    <thead>
+        <tr>
+            @foreach (ListColumn column in Model.Columns)
+            {
+                <th data-name="@column.ColumnName" data-type="@column.DataType" data-visible="@column.Visible">@column.DisplayName</th>
+            }
+        </tr>
+    </thead>
+    <tbody></tbody>
+    <tfoot></tfoot>
+</table>
+@Html.RegisterTinySqlPage()
+
+
+@*@section scripts {
+    @Scripts.Render("~/bundles/dataTables")
+    @Scripts.Render("~/Scripts/TinySql.js")
+}
+
+@section styles {
+    @Styles.Render("~/content/dataTables")
+}*@
+
+

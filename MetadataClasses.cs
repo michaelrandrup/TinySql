@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
@@ -142,7 +143,16 @@ namespace TinySql.Metadata
             set { _TitleColumn = value; }
         }
 
+        private ConcurrentDictionary<string, List<string>> _ListDefinitions = new ConcurrentDictionary<string,List<string>>();
+
+        public ConcurrentDictionary<string, List<string>> ListDefinitions
+        {
+            get { return _ListDefinitions; }
+            set { _ListDefinitions = value; }
+        }
         
+
+
 
         #endregion
 
@@ -328,6 +338,7 @@ namespace TinySql.Metadata
         public bool Nullable { get; set; }
 
         [XmlIgnore]
+        [JsonIgnore]
         public bool IsReadOnly
         {
             get
@@ -371,6 +382,8 @@ namespace TinySql.Metadata
             get { return _IncludeColumns; }
             set { _IncludeColumns = value; }
         }
+
+        
 
         #endregion
 

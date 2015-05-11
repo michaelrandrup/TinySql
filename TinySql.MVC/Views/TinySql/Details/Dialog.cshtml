@@ -15,16 +15,21 @@
     @*<h4 id="title@(Model.ID)" class="model-title">@Model.Title</h4>*@
                 <span id="title@(Model.ID)" class="model-title lead">@Model.Title</span>
                 <span class="pull-right" style="padding-right:12px;">
-                    <button type="button" class="btn btn-success btn-xs">Save</button>
+                    <button type="button" class="btn btn-success btn-xs btnsave">Save</button>
                     <button type="button" class="btn btn-danger btn-xs">Delete</button>
                 </span>
             </div>
             <div class="modal-body">
                 @*<div class="container">*@
-                    <form id="@Model.ID" class="@Model.CssFormLayout">
+                    <form id="@Model.ID" data-table="@Model.Metadata.Fullname" class="@Model.CssFormLayout">
                         @foreach (FormSection Section in Model.Sections)
                         {
                             @Html.Partial(Model.CssSectionView, Model.GetSectionModel(Section))
+                            foreach (FormField Hidden in Section.Fields.Where(x => x.IsHidden))
+                            {
+                                FieldModel fieldModel = Section.GetFieldModel(Hidden, Model.Metadata, Model.Data);    
+                                @Html.TinySqlInput(fieldModel)
+                            }
                         }
                     </form>
                 @*</div>*@

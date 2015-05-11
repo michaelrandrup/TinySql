@@ -11,7 +11,6 @@ namespace TinySql.MVC.Models
 		[FK("Account","AccountID","dbo","Account_AccountID_Contact_AcountID")]
 		public Nullable<Decimal>  AccountID { get; set; }
 
-		[FK("SystemUser","SystemUserID","dbo","FK_CreatedBy_SystemUser")]
 		public Decimal  CreatedBy { get; set; }
 
 		public DateTime  CreatedOn { get; set; }

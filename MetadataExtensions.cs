@@ -149,6 +149,34 @@ namespace TinySql
             return Builder;
         }
 
+        public static SqlBuilder ToSqlBuilder(this MetadataTable table, string ListName)
+        {
+            List<string> columns = new List<string>(table.PrimaryKey.Columns.Select(x => x.Name));
+            List<string> columnDef = null;
+            List<MetadataColumn> mcs = new List<MetadataColumn>();
+            if (table.ListDefinitions.TryGetValue(ListName, out columnDef))
+            {
+                mcs = table.Columns.Values.Where(x => columnDef.Contains(x.Name)).ToList();
+                columns.AddRange(mcs.Select(x => x.Name));
+            }
+
+            SqlBuilder Builder =  SqlBuilder.Select()
+                .From(table.Name, null, table.Schema).Builder();
+
+            foreach (MetadataColumn mc in mcs.Where(x => x.IsForeignKey))
+            {
+                Builder.BaseTable().WithMetadata().AutoJoin(mc.Name);
+            }
+
+            Builder.From(table.Name, null, table.Schema).Columns(columns.ToArray());
+           
+
+            
+            return Builder;
+
+
+        }
+
 
         #endregion
 
@@ -194,8 +222,6 @@ namespace TinySql
             return helper.Column(Property,MapColumn);
         }
 
-        
-
         #endregion
 
         public static MetadataHelper<TClass> InnerJoin<TClass,TProperty>(this MetadataHelper<TClass> helper, Expression<Func<TClass,TProperty>> Property)
@@ -236,6 +262,25 @@ namespace TinySql
             }
             return (MetadataHelper<TClass>)previous;
         }
+
+
+        #region Conditions
+        public static Table WherePrimaryKey(this MetadataHelper helper, object[] keys)
+        {
+            MetadataColumn key = helper.Model.PrimaryKey.Columns.First();
+
+            if (helper.Table.Builder.WhereConditions.Conditions.Count == 0)
+            {
+                helper.Table.Where(helper.Model.Name,key.Name, SqlOperators.Equal,keys[0]);
+            }
+            for (int i = 1; i < helper.Model.PrimaryKey.Columns.Count; i++)
+            {
+                helper.Table.Builder.WhereConditions.And(helper.Model.Name, helper.Model.PrimaryKey.Columns[i].Name, SqlOperators.Equal, keys[i]);
+            }
+            return helper.Table;
+        }
+
+        #endregion
 
 
         #region Join statements

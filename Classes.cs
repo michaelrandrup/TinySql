@@ -272,7 +272,7 @@ namespace TinySql
 
     public class RowData : DynamicObject, ICloneable
     {
-        public static RowData Create(MetadataTable Table, bool CachePrimaryKey = false)
+        public static RowData Create(MetadataTable Table, bool CachePrimaryKey = false, object[] PK = null)
         {
             ConcurrentDictionary<string, object> values = new ConcurrentDictionary<string, object>();
             foreach (MetadataColumn mc in Table.Columns.Values)
@@ -293,6 +293,13 @@ namespace TinySql
             }
             RowData row = new RowData(values, new ConcurrentDictionary<string, object>());
             row.LoadMetadata(Table, CachePrimaryKey);
+            if (PK != null)
+            {
+                for (int i = 0; i < Table.PrimaryKey.Columns.Count; i++)
+                {
+                    row.OriginalValues.AddOrUpdate(Table.PrimaryKey.Columns[i].Name, PK[i], (k, v) => { return PK[i]; });
+                }
+            }
             return row;
         }
 
@@ -577,7 +584,7 @@ namespace TinySql
                 return false;
 
             }
-            if (!o.Equals(value))
+            if ((o == null && value != null) || !o.Equals(value))
             {
                 _ChangedValues.AddOrUpdate(Column, value, (key, existing) =>
                 {
@@ -1381,17 +1388,17 @@ namespace TinySql
             {
                 string table = this.Table.Alias;
                 return table + ".[" + (this.Alias ?? this.Name) + "]";
-                //if (table.StartsWith("["))
-                //{
-                //    return table + ".[" + (this.Alias ?? this.Name) + "]";
-                //}
-                //else
-                //{
-                //    return "[" + table + "].[" + (this.Alias ?? this.Name) + "]";
-                //}
-
             }
         }
+
+        public virtual string OutputName
+        {
+            get
+            {
+                return string.IsNullOrEmpty(Alias) ? Alias : Name;
+            }
+        }
+
 
         private bool IsDateData(SqlDbType SqlDataType)
         {

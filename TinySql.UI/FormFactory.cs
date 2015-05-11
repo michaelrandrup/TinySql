@@ -83,7 +83,7 @@ namespace TinySql.UI
                 }
                 form.Sections.Add(section);
             }
-
+            form.Sections[0].Fields.Insert(0, new FormField() { Name = "__TABLE", ID = "__TABLE", FieldType = FieldTypes.Input, InputType = InputTypes.text, IsHidden = true });
             return form;
         }
 

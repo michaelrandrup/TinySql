@@ -6,7 +6,7 @@
         {
             <legend>@Model.Section.Legend</legend>
         }
-        @foreach (FormField Field in Model.Section.Fields)
+        @foreach (FormField Field in Model.Section.Fields.Where(x => x.IsHidden == false))
         {
             FieldModel fieldModel = Model.Section.GetFieldModel(Field, Model.Model, Model.Data);
             switch (Model.Section.SectionLayout)

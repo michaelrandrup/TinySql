@@ -381,6 +381,10 @@ namespace TinySql.UI
         {
             MetadataColumn mc = null;
             MetadataTable mt = Model;
+            if (Field.ID.StartsWith("__"))
+            {
+                return new FieldModel(Field, null, Data.Column(Field.Name), SectionLayout);
+            }
             if (Field.TableName != Model.Fullname)
             {
                 mt = SqlBuilder.DefaultMetadata.FindTable(Field.TableName);
