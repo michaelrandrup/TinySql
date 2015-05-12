@@ -205,9 +205,15 @@ namespace TinySql.UI
                 MetadataColumn mc;
                 SqlDbType type = SqlDbType.NVarChar;
                 string Display = cdef;
-                if (!Table.Columns.TryGetValue(cdef, out mc))
+                string ColName = cdef;
+                if (cdef.IndexOf('=') > 0)
                 {
-                    Field f = list.Builder.Tables.SelectMany(x => x.FieldList).FirstOrDefault(x => x.Alias != null && x.Alias.Equals(cdef));
+                    ColName = cdef.Split('=')[0];
+                    Display = cdef.Split('=')[1];
+                }
+                if (!Table.Columns.TryGetValue(ColName, out mc))
+                {
+                    Field f = list.Builder.Tables.SelectMany(x => x.FieldList).FirstOrDefault(x => x.Alias != null && x.Alias.Equals(ColName));
                     if (f != null)
                     {
                         type = f.SqlDataType;
@@ -222,11 +228,12 @@ namespace TinySql.UI
                 else
                 {
                     Display = mc.DisplayName;
+                    ColName = mc.Name;
                     type = mc.SqlDataType;
                 }
                 list.Columns.Add(new ListColumn()
                 {
-                    ColumnName = mc != null ? mc.Name : cdef,
+                    ColumnName = ColName,
                     DisplayName = Display,
                     IsVisible = mc != null ? !mc.IsForeignKey : true,
                     ColumnDataType = ListColumn.GetColumnDataType(type)

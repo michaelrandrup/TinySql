@@ -7,13 +7,6 @@ using TinySql.UI;
 
 namespace TinySql.UI
 {
-    public class SaveModel
-    {
-        public FormCollection Model { get; set; }
-        public string Table { get; set; }
-        public ListTypes ListType { get; set; }
-        public string ListName { get; set; }
-    }
     public static class TinySqlExtensions
     {
         public static MvcHtmlString RegisterTinySqlPage(this HtmlHelper helper)
@@ -43,8 +36,20 @@ namespace TinySql.UI
             if (model.Field.IsHidden)
             {
                 ctrl = string.Format("<input type=\"hidden\" name=\"{0}\" value=\"{1}\" >",
-                    model.Field.Name,                                       // 0
+                    model.Field.ControlName,                                       // 0
                     model.Data == null ? "" : Convert.ToString(model.Data)  // 1
+                    );
+            }
+            else if (model.Field.FieldType == FieldTypes.TextArea)
+            {
+                ctrl = string.Format("<textarea id=\"{0}\" name=\"{1}\" class=\"{2}\" placeholder=\"{3}\" rows=\"{4}\" {5}>{6}</textarea>",
+                    model.Field.ID,
+                    model.Field.ControlName,
+                    model.Field.CssInputControlLayout,
+                    model.Field.NullText,
+                    model.Field.MultiLineInputRows,
+                    model.Field.IsReadOnly ? "disabled": "",
+                    model.Data != null ? Convert.ToString(model.Data) : ""
                     );
             }
             else if (model.Field.FieldType == FieldTypes.Checkbox)
@@ -54,7 +59,7 @@ namespace TinySql.UI
                 {
                     ctrl = string.Format("<label><input type=\"checkbox\" value=\"true\" name=\"{1}\" id=\"input{0}\" {2}> {3}</label>",
                         model.Field.ID,
-                        model.Field.Alias ?? model.Field.Name,
+                        model.Field.ControlName,
                         // model.Data == null ? "" : Convert.ToString(model.Data),
                         b ? "checked" : "",
                         model.Field.DisplayName,

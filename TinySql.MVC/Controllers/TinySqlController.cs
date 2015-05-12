@@ -24,7 +24,8 @@ namespace TinySql.MVC.Controllers
         {
 
             MetadataTable table = SqlBuilder.DefaultMetadata.FindTable(Table);
-            SqlBuilder builder = table.ToSqlBuilder(ListType != ListTypes.Custom ? ListType.ToString() : ListName);
+            // SqlBuilder builder = table.ToSqlBuilder(ListType != ListTypes.Custom ? ListType.ToString() : ListName);
+            SqlBuilder builder = table.ToSqlBuilder("");
             builder.BaseTable().WithMetadata().WherePrimaryKey(new object[] { (object)Id });
 
             ResultTable result = builder.Execute();

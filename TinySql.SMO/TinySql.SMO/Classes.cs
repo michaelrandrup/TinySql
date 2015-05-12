@@ -212,9 +212,9 @@ namespace TinySql.Metadata
             {
                 foreach (string value in values)
                 {
-                    string[] v = value.Split(new char[] { '=' }, StringSplitOptions.RemoveEmptyEntries);
+                    string[] v = value.Split(new char[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
                     List<string> v2 = v[1].Split(',').ToList();
-                    if (!mt.ListDefinitions.TryAdd(v[0],v2))
+                    if (!mt.ListDefinitions.TryAdd(v[0].Trim(), v2))
                     {
                         throw new InvalidOperationException(string.Format("The TinySql.Lists extended property is invalid for the table '{0}'", table.Name));
                     }
@@ -228,55 +228,72 @@ namespace TinySql.Metadata
 
             foreach (Microsoft.SqlServer.Management.Smo.Column column in table.Columns)
             {
-                MetadataColumn col = new MetadataColumn()
+                try
                 {
-                    ID = column.ID,
-                    Parent = mt,
-                    //Database = mdb,
-                    Name = column.Name,
-                    Collation = column.Collation,
-                    Default = column.Default,
-                    IsComputed = column.Computed,
-                    ComputedText = column.ComputedText,
-                    IsPrimaryKey = column.InPrimaryKey,
-                    IsIdentity = column.Identity,
-                    IsForeignKey = column.IsForeignKey,
-                    IdentityIncrement = column.IdentityIncrement,
-                    IdentitySeed = column.IdentitySeed,
-                    Nullable = column.Nullable,
-                    IsRowGuid = column.RowGuidCol
-                };
-                BuildColumnDataType(col, column);
-
-                values = GetExtendedProperty("DisplayName", column.ExtendedProperties, new char[] { '\r', '\n' });
-                if (values != null)
-                {
-                    foreach (string value in values)
+                    MetadataColumn col = new MetadataColumn()
                     {
-                        string[] v = value.Split(new char[] { '=' }, StringSplitOptions.RemoveEmptyEntries);
-                        col.DisplayNames.TryAdd(Convert.ToInt32(v[0]), v[1]);
+                        ID = column.ID,
+                        Parent = mt,
+                        //Database = mdb,
+                        Name = column.Name,
+                        Collation = column.Collation,
+                        Default = column.Default,
+                        IsComputed = column.Computed,
+                        ComputedText = column.ComputedText,
+                        IsPrimaryKey = column.InPrimaryKey,
+                        IsIdentity = column.Identity,
+                        IsForeignKey = column.IsForeignKey,
+                        IdentityIncrement = column.IdentityIncrement,
+                        IdentitySeed = column.IdentitySeed,
+                        Nullable = column.Nullable,
+                        IsRowGuid = column.RowGuidCol
+                    };
+                    BuildColumnDataType(col, column);
+
+                    values = GetExtendedProperty("DisplayName", column.ExtendedProperties, new char[] { '\r', '\n' });
+                    if (values != null)
+                    {
+                        foreach (string value in values)
+                        {
+                            if (!value.Contains("="))
+                            {
+                                col.DisplayNames.TryAdd(SqlBuilder.DefaultCulture.LCID, value);
+                            }
+                            else
+                            {
+                                string[] v = value.Split(new char[] { '=' }, StringSplitOptions.RemoveEmptyEntries);
+                                col.DisplayNames.TryAdd(Convert.ToInt32(v[0]), v[1]);
+                            }
+                            
+                        }
                     }
+
+
+
+
+
+                    col.IncludeColumns = GetExtendedProperty("IncludeColumns", column.ExtendedProperties, new char[] { ',' });
+
+                    values = GetExtendedProperty("FK", column.ExtendedProperties, new char[] { '\r', '\n' });
+                    if (values != null)
+                    {
+                        VirtualKeys.Add(new VirtualForeignKey() { Column = col, values = values });
+                        col.IsForeignKey = true;
+                    }
+
+
+
+                    mt.Columns.AddOrUpdate(col.Name, col, (k, v) => { return col; });
+
+
                 }
-
-               
-
-                
-
-                col.IncludeColumns = GetExtendedProperty("IncludeColumns", column.ExtendedProperties, new char[] { ',' });
-
-                values = GetExtendedProperty("FK", column.ExtendedProperties, new char[] { '\r', '\n' });
-                if (values != null)
+                catch (Exception exColumn)
                 {
-                    VirtualKeys.Add(new VirtualForeignKey() { Column = col, values = values });
-                    col.IsForeignKey = true;
+                    throw new InvalidOperationException(string.Format("Unable to generate the column {0}", column.Name), exColumn);
                 }
-
-
-
-                mt.Columns.AddOrUpdate(col.Name, col, (k, v) => { return col; });
-
-
             }
+
+
 
             foreach (Index idx in table.Indexes)
             {

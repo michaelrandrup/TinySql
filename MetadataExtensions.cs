@@ -390,6 +390,10 @@ namespace TinySql
                         iName = include.Split('=')[0];
                         iAlias = include.Split('=')[1];
                     }
+                    else
+                    {
+                        iAlias = FromField.Name + "_" + iName;
+                    }
                     toTable.Column(iName, iAlias);
                 }
             }

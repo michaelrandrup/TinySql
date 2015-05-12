@@ -177,6 +177,14 @@ namespace TinySql.UI
             set { _CssFormSection = value; }
         }
 
+        private int _MultiLineInputRows = 3;
+
+        public int MultiLineInputRows
+        {
+            get { return _MultiLineInputRows; }
+            set { _MultiLineInputRows = value; }
+        }
+
         private SectionLayouts _SectionLayout = SectionLayouts.VerticalTwoColumns;
 
         public SectionLayouts SectionLayout
@@ -506,6 +514,14 @@ namespace TinySql.UI
 
         private string _CssFieldGroup = null;
 
+        public string ControlName
+        {
+            get
+            {
+                return (Alias ?? Name).Replace(" ", "_");
+            }
+        }
+
         public string CssFieldGroup
         {
             get
@@ -617,7 +633,13 @@ namespace TinySql.UI
             set { _CssCheckBoxLayout = value; }
         }
 
+        private int? _MultiLineInputRows = null;
 
+        public int MultiLineInputRows
+        {
+            get { return _MultiLineInputRows ?? FormDefaults.Default.MultiLineInputRows; }
+            set { _MultiLineInputRows = value; }
+        }
 
 
 

@@ -307,7 +307,6 @@
     <Content Include="Content\DataTables-1.10.7\extensions\TableTools\images\psd\copy document.psd" />
     <Content Include="Content\DataTables-1.10.7\extensions\TableTools\images\psd\collection.psd" />
     <Content Include="Content\DataTables-1.10.7\extensions\Responsive\css\dataTables.responsive.scss" />
-    <Content Include="Content\Metadata\TinyCrm.json" />
     <Content Include="Models\CreateMetadata.bat" />
     <None Include="Scripts\jquery-2.1.3.intellisense.js" />
     <Content Include="Icon.png" />
@@ -380,6 +379,7 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />
+    <Folder Include="Content\Metadata\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="packages.config" />
