@@ -7,6 +7,13 @@ using TinySql.UI;
 
 namespace TinySql.UI
 {
+    public class SaveModel
+    {
+        public FormCollection Model { get; set; }
+        public string Table { get; set; }
+        public ListTypes ListType { get; set; }
+        public string ListName { get; set; }
+    }
     public static class TinySqlExtensions
     {
         public static MvcHtmlString RegisterTinySqlPage(this HtmlHelper helper)
@@ -17,12 +24,16 @@ namespace TinySql.UI
         public static MvcHtmlString TinySqlLabel(this HtmlHelper helper, FieldModel model)
         {
 
-            string label = string.Format("<label id=\"label{1}\" for=\"{1}\" class=\"{2}\">{0}</label>",
+            if (model.Field.FieldType != FieldTypes.Checkbox && model.Field.FieldType != FieldTypes.Option)
+            {
+                string label = string.Format("<label id=\"label{1}\" for=\"{1}\" class=\"{2}\">{0}</label>",
                 model.Field.DisplayName,                      // 0
                 model.Field.ID,                               // 1
                 model.Field.GetCssLabelLayout(model.SectionLayout)  // 2
-            );
-            return MvcHtmlString.Create(label);
+                );
+                return MvcHtmlString.Create(label);
+            }
+            return MvcHtmlString.Empty;
         }
 
         public static MvcHtmlString TinySqlInput(this HtmlHelper helper, FieldModel model)
@@ -36,16 +47,38 @@ namespace TinySql.UI
                     model.Data == null ? "" : Convert.ToString(model.Data)  // 1
                     );
             }
+            else if (model.Field.FieldType == FieldTypes.Checkbox)
+            {
+                bool b;
+                if (bool.TryParse(model.Data.ToString(), out b))
+                {
+                    ctrl = string.Format("<label><input type=\"checkbox\" value=\"true\" name=\"{1}\" id=\"input{0}\" {2}> {3}</label>",
+                        model.Field.ID,
+                        model.Field.Alias ?? model.Field.Name,
+                        // model.Data == null ? "" : Convert.ToString(model.Data),
+                        b ? "checked" : "",
+                        model.Field.DisplayName,
+                        model.Field.CssCheckBoxLayout,
+                        model.Field.IsReadOnly ? "disabled" : ""
+                        );
+                }
+                else
+                {
+                    throw new ArgumentException("Non boolean value specified for the form field " + model.Field.Name, "model");
+                }
+            }
             else if (model.Field.FieldType == FieldTypes.Input)
             {
-                ctrl = string.Format("<input type=\"{4}\" class=\"{2}\" name=\"{1}\" id=\"input{0}\" placeholder=\"Email\" value=\"{5}\" {6} >",
+                ctrl = string.Format("<input type=\"{4}\" class=\"{2}\" name=\"{1}\" id=\"input{0}\" placeholder=\"Enter {7}\" value=\"{5}\" {6} >",
                     model.Field.ID,                                         // 0
-                    model.Field.TableName + "_" + model.Field.Name,                                       // 1
+                    //model.Field.TableName + "_" + model.Field.Name,                                       // 1
+                    model.Field.Alias ?? model.Field.Name,                                       // 1
                     model.Field.CssInputControlLayout,                      // 2
                     model.Field.NullText,                                   // 3
                     model.Field.InputType.ToString().Replace("_", "-"),      // 4
                     model.Data == null ? "" : Convert.ToString(model.Data),  // 5
-                    ReadOnly                                                // 6
+                    ReadOnly,                                                // 6
+                    model.Field.DisplayName
                     );
             }
             else if (model.Field.FieldType == FieldTypes.LookupInput || model.Field.FieldType == FieldTypes.SelectList)
@@ -82,7 +115,8 @@ namespace TinySql.UI
                     }
                     ctrl = string.Format("<select id=\"{0}\" name=\"{1}\" class=\"{2}\" {3} >{4}</select>",
                     lookup.ID,                      // 0
-                    lookup.TableName + "_" + lookup.Name,                    // 1
+                    lookup.Alias ?? lookup.Name,                                       // 1
+                        //lookup.TableName + "_" + lookup.Name,                    // 1
                     lookup.CssInputControlLayout,   // 2
                     ReadOnly,                       // 3
                     ctrlItems                       // 4  

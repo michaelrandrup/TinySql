@@ -156,9 +156,14 @@ namespace TinySql
             List<MetadataColumn> mcs = new List<MetadataColumn>();
             if (table.ListDefinitions.TryGetValue(ListName, out columnDef))
             {
+
                 mcs = table.Columns.Values.Where(x => columnDef.Contains(x.Name)).ToList();
-                columns.AddRange(mcs.Select(x => x.Name));
             }
+            else
+            {
+                mcs = table.Columns.Values.Where(x => x.IsRowGuid == false && x.IsPrimaryKey == false).ToList();
+            }
+            columns.AddRange(mcs.Select(x => x.Name));
 
             SqlBuilder Builder =  SqlBuilder.Select()
                 .From(table.Name, null, table.Schema).Builder();

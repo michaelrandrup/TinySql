@@ -12,7 +12,7 @@ namespace TinySql.MVC.Models
 
 		public Decimal  ActivityTypeID { get; set; }
 
-		[FK("Contact","ContactID","dbo","Contact_ContactID_Activity_ContactID")]
+		[FK("Contact","ContactID","dbo","Contact_Activity_ContactID")]
 		public Decimal  ContactID { get; set; }
 
 		public Decimal  CreatedBy { get; set; }

@@ -161,6 +161,14 @@ namespace TinySql.UI
             set { _CssInputControlLayout = value; }
         }
 
+        private string _CssCheckBoxLayout = "checkbox";
+
+        public string CssCheckBoxLayout
+        {
+            get { return _CssCheckBoxLayout; }
+            set { _CssCheckBoxLayout = value; }
+        }
+
         private string _CssFormSection = "row";
 
         public string CssFormSection
@@ -220,6 +228,13 @@ namespace TinySql.UI
             set { _CssSectionView = value; }
         }
 
+        private string _EditDialogViewUrl = "~/Views/TinySql/Details/dialog.cshtml";
+
+        public string EditDialogViewUrl
+        {
+            get { return _EditDialogViewUrl; }
+            set { _EditDialogViewUrl = value; }
+        }
 
 
 
@@ -327,6 +342,15 @@ namespace TinySql.UI
             return this.Sections.SelectMany(x => x.Fields).FirstOrDefault(x => x.ID.Equals(ID, StringComparison.OrdinalIgnoreCase));
         }
 
+        private string _EditDialogViewUrl = null;
+
+        public string EditDialogViewUrl
+        {
+            get { return _EditDialogViewUrl ?? FormDefaults.Default.EditDialogViewUrl; }
+            set { _EditDialogViewUrl = value; }
+        }
+
+
     }
 
     public class FormSection
@@ -418,7 +442,7 @@ namespace TinySql.UI
                     base.FieldType = value;
                     //throw new ArgumentException("LookupField must be either LookupInput or SelectList", "FieldType");
                 }
-                
+
             }
         }
 
@@ -484,7 +508,17 @@ namespace TinySql.UI
 
         public string CssFieldGroup
         {
-            get { return _CssFieldGroup ?? FormDefaults.Default.CssFieldGroup; }
+            get
+            {
+                if (this.FieldType == FieldTypes.Checkbox)
+                {
+                    return (_CssCheckBoxLayout ?? FormDefaults.Default.CssCheckBoxLayout) + (this.IsReadOnly ? " disabled" : "");
+                }
+                else
+                {
+                    return _CssFieldGroup ?? FormDefaults.Default.CssFieldGroup;
+                }
+            }
             set { _CssFieldGroup = value; }
         }
 
@@ -574,6 +608,16 @@ namespace TinySql.UI
             get { return _CssInputControlLayout ?? FormDefaults.Default.CssInputControlLayout; }
             set { _CssInputControlLayout = value; }
         }
+
+        private string _CssCheckBoxLayout = null;
+
+        public string CssCheckBoxLayout
+        {
+            get { return _CssCheckBoxLayout ?? FormDefaults.Default.CssCheckBoxLayout; }
+            set { _CssCheckBoxLayout = value; }
+        }
+
+
 
 
 

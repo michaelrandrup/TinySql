@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TinySql.Metadata;
+using System.Data;
 
 namespace TinySql.UI
 {
@@ -109,6 +110,17 @@ namespace TinySql.UI
 
         #region instance methods
 
+        private void BuildTable(ListBuilder list, Table table)
+        {
+
+            foreach (Field f in table.FieldList)
+            {
+
+            }
+
+
+        }
+
         public ListBuilder BuildList(string TableName, ListTypes ListType, string ListTitle = null, string CustomListName = null)
         {
             ListBuilder list = null;
@@ -162,42 +174,68 @@ namespace TinySql.UI
                 ListType = ListType,
                 TableName = Table.Fullname,
                 Title = string.IsNullOrEmpty(ListTitle) ? Table.DisplayName : ListTitle,
-                CustomName = CustomListName
+                CustomName = CustomListName,
             };
-
+            list.AllowNew = list.AllowEdit = list.AllowDelete = ListType != ListTypes.Lookup;
             string ListName = ListType != ListTypes.Custom ? ListType.ToString() : CustomListName;
+
             List<MetadataColumn> columns = new List<MetadataColumn>(Table.PrimaryKey.Columns);
             List<string> columnDef = null;
-            if (Table.ListDefinitions.TryGetValue(ListName, out columnDef))
+            if (!Table.ListDefinitions.TryGetValue(ListName, out columnDef))
             {
-                foreach (MetadataColumn column in columns)
-                {
-                    list.Columns.Add(new ListColumn()
-                    {
-                        ColumnName = column.Name,
-                        DisplayName = column.DisplayName,
-                        IsVisible = true,
-                        ColumnDataType = ListColumn.GetColumnDataType(column.SqlDataType)
-
-                    });
-                }
-                foreach (string cdef in columnDef)
-                {
-                    MetadataColumn mc;
-                    Table.Columns.TryGetValue(cdef, out mc);
-                    list.Columns.Add(new ListColumn()
-                    {
-                        ColumnName = mc != null ? mc.Name : cdef,
-                        DisplayName = mc != null ? mc.DisplayName : cdef,
-                        IsVisible = mc != null ? !mc.IsForeignKey : true,
-                        ColumnDataType = mc != null ? ListColumn.GetColumnDataType(mc.SqlDataType) : ColumnDataTypes.Text
-                    });
-                }
-
-                //columns.AddRange(
-                //    Table.Columns.Values.Where(x => columnDef.Contains(x.Name))
-                //    );
+                // No standard specified
+                columnDef = new List<string>(Table.Columns.Values.Where(x => x.IsPrimaryKey == false && x.IsRowGuid == false).Select(x => x.Name));
             }
+
+            foreach (MetadataColumn column in columns)
+            {
+                list.Columns.Add(new ListColumn()
+                {
+                    ColumnName = column.Name,
+                    DisplayName = column.DisplayName,
+                    IsVisible = true,
+                    ColumnDataType = ListColumn.GetColumnDataType(column.SqlDataType)
+
+                });
+            }
+
+            list.Builder = Table.ToSqlBuilder(list.ListType != ListTypes.Custom ? list.ListType.ToString() : CustomListName);
+            foreach (string cdef in columnDef)
+            {
+                MetadataColumn mc;
+                SqlDbType type = SqlDbType.NVarChar;
+                string Display = cdef;
+                if (!Table.Columns.TryGetValue(cdef, out mc))
+                {
+                    Field f = list.Builder.Tables.SelectMany(x => x.FieldList).FirstOrDefault(x => x.Alias != null && x.Alias.Equals(cdef));
+                    if (f != null)
+                    {
+                        type = f.SqlDataType;
+                        //MetadataTable mtRelated = SqlBuilder.DefaultMetadata.FindTable((f.Table.Schema != null ? f.Table.Schema + "." : "") + f.Table.Name);
+                        //MetadataColumn mcRelated;
+                        //if (mtRelated.Columns.TryGetValue(f.Name, out mcRelated))
+                        //{
+                        //    Display = mcRelated.DisplayName;
+                        //}
+                    }
+                }
+                else
+                {
+                    Display = mc.DisplayName;
+                    type = mc.SqlDataType;
+                }
+                list.Columns.Add(new ListColumn()
+                {
+                    ColumnName = mc != null ? mc.Name : cdef,
+                    DisplayName = Display,
+                    IsVisible = mc != null ? !mc.IsForeignKey : true,
+                    ColumnDataType = ListColumn.GetColumnDataType(type)
+                });
+            }
+
+            //columns.AddRange(
+            //    Table.Columns.Values.Where(x => columnDef.Contains(x.Name))
+            //    );
 
 
 
@@ -211,19 +249,7 @@ namespace TinySql.UI
         #endregion
 
 
-        #region Defaults
-        public static class Defaults
-        {
-            private static string _ListViewUrl = "~/Views/TinySql/Lists/List.cshtml";
 
-            public static string ListViewUrl
-            {
-                get { return Defaults._ListViewUrl; }
-                set { Defaults._ListViewUrl = value; }
-            }
-        }
-
-        #endregion
 
     }
 }

@@ -8,6 +8,7 @@ using TinySql.Serialization;
 using TinySql;
 using TinySql.Metadata;
 using TinySql.UI;
+using System.Collections.Specialized;
 
 namespace TinySql.MVC.Controllers
 {
@@ -22,74 +23,100 @@ namespace TinySql.MVC.Controllers
         public PartialViewResult Edit(string Id, string Table, ListTypes ListType, string ListName)
         {
 
-            decimal pk = Convert.ToDecimal(Id);
             MetadataTable table = SqlBuilder.DefaultMetadata.FindTable(Table);
             SqlBuilder builder = table.ToSqlBuilder(ListType != ListTypes.Custom ? ListType.ToString() : ListName);
             builder.BaseTable().WithMetadata().WherePrimaryKey(new object[] { (object)Id });
-            
-            
-            //SqlBuilder builder = SqlBuilder.Select()
-            //    .From("Contact").Columns("ContactID", "Name", "Title", "WorkEmail", "JobfunctionID", "JobpositionID", "StateID")
-            //    .WithMetadata()
-            //    .AutoJoin("AccountID")
-            //    .From("Contact").WithMetadata().AutoJoin("JobfunctionID")
-            //    .From("Contact").WithMetadata().AutoJoin("JobpositionID")
-            //    .Where<decimal>("Contact", "ContactID", SqlOperators.Equal, pk)
-            //    .Builder();
 
             ResultTable result = builder.Execute();
             
             Form model = FormFactory.Default.BuildForm(builder);
             model.Initialize(result.First());
-            return PartialView("~/Views/TinySql/Details/dialog.cshtml",model);
+            return PartialView(model.EditDialogViewUrl,model);
         }
 
-
+        
 
         [HttpPost]
-        public ContentResult Save(FormCollection form)
+        //public ContentResult Save(FormCollection Model, string Table, ListTypes ListType, string ListName)
+        
+        // public ContentResult Save(SaveModel Model)
+        public ContentResult Save(string rowData, string Table, ListTypes ListType, string ListName)
         {
-            // Retrieve by Primary key
-            var s = form[0];
-
-            string TableName = form["__TABLE"];
-            MetadataTable mt = SqlBuilder.DefaultMetadata.FindTable(TableName);
-            List<object> PKs = new List<object>();
-            foreach (MetadataColumn mc in mt.PrimaryKey.Columns)
-            {
-                PKs.Add(form[TableName + "_" + mc.Name]);
-            }
-            RowData row = RowData.Create(mt, true,PKs.ToArray());
-            foreach (string key in form.Keys)
-            {
-                if (!key.StartsWith("__"))
-                {
-                    string ColumnName = key.Replace(TableName, "").Replace("_", "");
-                    MetadataColumn mc;
-                    if (mt.Columns.TryGetValue(ColumnName, out mc))
-                    {
-                        if (!mc.IsReadOnly)
-                        {
-                            row.Column(mc.Name, (object)form[key]);
-                        }
-                    }
-                }
-            }
-
-            SqlBuilder builder = row.Update(true, true);
-            ResultTable result = builder.Execute(30, false);
+            RowData row = SerializationExtensions.FromJson<RowData>(rowData);
+            row.LoadMetadata();
+            row.LoadMissingColumns<bool>();
+            SqlBuilder builder = row.Update(false, true);
+            ResultTable result = builder.Execute();
             if (result.Count == 1)
             {
-                object PK = result.First().Column(mt.PrimaryKey.Columns.First().Name);
-                SqlBuilder Builder = mt.ToSqlBuilder(ListTypes.Primary.ToString());
-                Builder.BaseTable().WithMetadata().WherePrimaryKey(new object[] { (object)PK });
-                ResultTable updated = Builder.Execute(30, false, ResultTable.DateHandlingEnum.ConvertToDate);
-                if (updated.Count == 1)
+                builder = row.Select(ListType != ListTypes.Custom ? ListType.ToString() : ListName);
+                //builder = row.Metadata.ToSqlBuilder(ListType != ListTypes.Custom ? ListType.ToString() : ListName);
+                //builder.WhereConditions = row.PrimaryKey(builder);
+                result = builder.Execute(30, false, ResultTable.DateHandlingEnum.ConvertToDate);
+                if (result.Count == 1)
                 {
-                    return Content(SerializationExtensions.ToJson<dynamic>(updated.First()), "application/json");
+                    return Content(SerializationExtensions.ToJson<dynamic>(result.First()), "application/json");
                 }
+
+                //// object PK = result.First().Column(mt.PrimaryKey.Columns.First().Name);
                 
+                //Builder.BaseTable().WithMetadata().WherePrimaryKey(new object[] { (object)PK });
+                //ResultTable updated = Builder.Execute(30, false, ResultTable.DateHandlingEnum.ConvertToDate);
+                //if (updated.Count == 1)
+                //{
+                //    return Content(SerializationExtensions.ToJson<dynamic>(updated.First()), "application/json");
+                //}
+
             }
+
+
+
+
+            //// Retrieve by Primary key
+            //MetadataTable mt = SqlBuilder.DefaultMetadata.FindTable(Table);
+            //List<object> PKs = new List<object>();
+            //foreach (MetadataColumn mc in mt.PrimaryKey.Columns)
+            //{
+            //    PKs.Add(Model[Table + "_" + mc.Name]);
+            //}
+            //// Create an empty row with the primary key set
+            //RowData row = RowData.Create(mt, true, PKs.ToArray());
+
+            //// Change the row
+            //foreach (string key in Model.Keys)
+            //{
+            //    if (!key.StartsWith("__"))
+            //    {
+            //        string ColumnName = key.Replace(Table, "").Replace("_", "");
+            //        MetadataColumn mc;
+            //        if (mt.Columns.TryGetValue(ColumnName, out mc))
+            //        {
+            //            if (!mc.IsReadOnly)
+            //            {
+            //                // row.Column(mc.Name, (object)Model[key]);
+            //                row.Column(mc.Name, Model[key]);
+            //            }
+            //        }
+            //    }
+            //}
+
+            //// Build SQL and update
+            //SqlBuilder builder = row.Update(true, true);
+            //ResultTable result = builder.Execute(30, false);
+
+
+            //if (result.Count == 1)
+            //{
+            //    object PK = result.First().Column(mt.PrimaryKey.Columns.First().Name);
+            //    SqlBuilder Builder = mt.ToSqlBuilder(ListType != ListTypes.Custom ? ListType.ToString() : ListName);
+            //    Builder.BaseTable().WithMetadata().WherePrimaryKey(new object[] { (object)PK });
+            //    ResultTable updated = Builder.Execute(30, false, ResultTable.DateHandlingEnum.ConvertToDate);
+            //    if (updated.Count == 1)
+            //    {
+            //        return Content(SerializationExtensions.ToJson<dynamic>(updated.First()), "application/json");
+            //    }
+
+            //}
 
             return Content("");
 
@@ -143,50 +170,8 @@ namespace TinySql.MVC.Controllers
         public PartialViewResult List(string TableName, ListTypes ListType, string ListName)
         {
             ListBuilder model = ListFactory.Default.BuildList(TableName, ListType, null, ListName);
-            return PartialView(ListFactory.Defaults.ListViewUrl, model);
+            return PartialView(model.ListViewUrl, model);
         }
 
-        [AcceptVerbs( HttpVerbs.Get)]
-        public ContentResult Contacts()
-        {
-            // Metadata
-            //
-            SqlBuilder builder = SqlBuilder.Select(500)
-                .From("Contact")
-                .Column("ContactID")
-                .Column("Name")
-                .Column("Telephone")
-                .Column("WorkEmail")
-                .Column("ModifiedOn")
-                .WithMetadata().InnerJoin("AccountID")
-                .Column("Name", "AccountName")
-                .From("Contact")
-                //.Where<string>("Contact","WorkEmail", SqlOperators.NotNull,null)
-                //.And<string>("Account","AccountID", SqlOperators.NotNull,null)
-                .Builder();
-
-            ResultTable result = builder.Execute(30, false, ResultTable.DateHandlingEnum.ConvertToDate);
-            return Content(SerializationExtensions.ToJson<dynamic>(result), "application/json");
-            
-            // Object
-            //SqlBuilder builder = SqlBuilder.Select().WithMetadata<Contact>()
-            //    .Column(c => c.ContactID)
-            //    .Column(c => c.Name)
-            //    .Column(c => c.Telephone)
-            //    .Column(c => c.WorkEmail)
-            //    .Column(c => c.ModifiedOn)
-            //    .InnerJoin(c => c.AccountID)
-            //    .Column(c => c.AccountName, "Name")
-            //    .Builder();
-
-            //List<Contact> contacts = builder.List<Contact>();
-            //return Content(SerializationExtensions.ToJson<dynamic>(contacts), "application/json");
-
-            
-            
-            
-            
-
-        }
     }
 }

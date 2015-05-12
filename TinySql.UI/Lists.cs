@@ -27,6 +27,37 @@ namespace TinySql.UI
         Html
     }
 
+    #region Defaults
+        public sealed class ListDefaults
+        {
+            private ListDefaults() {
+
+            }
+
+            private static ListDefaults instance = null;
+            public static ListDefaults Default
+            {
+                get {
+                    if (instance == null)
+                    {
+                        instance = new ListDefaults();
+                    }
+                    return instance;
+                }
+            }
+
+            private string _ListViewUrl = "~/Views/TinySql/Lists/List.cshtml";
+            public string ListViewUrl
+            {
+                get { return _ListViewUrl; }
+                set { _ListViewUrl = value; }
+            }
+
+
+        }
+
+        #endregion
+
 
     public sealed class ListBuilder
     {
@@ -35,6 +66,28 @@ namespace TinySql.UI
         {
             get { return _ListType; }
             set { _ListType = value; }
+        }
+
+        private bool _AllowNew = true;
+
+        public bool AllowNew
+        {
+            get { return _AllowNew; }
+            set { _AllowNew = value; }
+        }
+        private bool _AllowDelete = true;
+
+        public bool AllowDelete
+        {
+            get { return _AllowDelete; }
+            set { _AllowDelete = value; }
+        }
+        private bool _AllowEdit = true;
+
+        public bool AllowEdit
+        {
+            get { return _AllowEdit; }
+            set { _AllowEdit = value; }
         }
 
         private string _CustomName = null;
@@ -62,6 +115,13 @@ namespace TinySql.UI
         {
             get { return _Columns; }
             set { _Columns = value; }
+        }
+
+        private string _ListViewUrl = null;
+        public string ListViewUrl
+        {
+            get { return _ListViewUrl ?? ListDefaults.Default.ListViewUrl; }
+            set { _ListViewUrl = value; }
         }
     }
 

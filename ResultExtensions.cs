@@ -1,11 +1,18 @@
 ﻿using System;
 using TinySql.Metadata;
+using System.Linq;
 
 namespace TinySql
 {
     public static class ResultExtensions
     {
 
+        public static SqlBuilder Select(this RowData row, string ListName)
+        {
+            SqlBuilder builder = row.Metadata.ToSqlBuilder(ListName);
+            builder.WhereConditions = row.PrimaryKey(builder);
+            return builder;
+        }
 
         public static SqlBuilder Update(this RowData row, bool OnlyChanges = false, bool OutputPrimaryKey = false, string[] OutputFields = null)
         {
@@ -29,9 +36,9 @@ namespace TinySql
                 {
                     object o;
                     MetadataColumn c;
-                    if (row.ChangedValues.TryGetValue(key, out o) && mt.Columns.TryGetValue(key,out c) && !c.IsReadOnly)
+                    if (row.ChangedValues.TryGetValue(key, out o) && mt.Columns.TryGetValue(key, out c) && !c.IsReadOnly)
                     {
-                        SqlStatementExtensions.Set(up, key, c.SqlDataType, o, c.DataType, c.Length,c.Precision, c.Scale);
+                        SqlStatementExtensions.Set(up, key, c.SqlDataType, o, c.DataType, c.Length, c.Precision, c.Scale);
                     }
                     else
                     {
@@ -46,9 +53,9 @@ namespace TinySql
                     MetadataColumn c;
                     if (mt.Columns.TryGetValue(key, out c) && !c.IsReadOnly)
                     {
-                        SqlStatementExtensions.Set(up, key, c.SqlDataType, row.Column(key), c.DataType, c.Length,c.Precision, c.Scale);
+                        SqlStatementExtensions.Set(up, key, c.SqlDataType, row.Column(key), c.DataType, c.Length, c.Precision, c.Scale);
                     }
-                    
+
                 }
             }
 
@@ -106,5 +113,26 @@ namespace TinySql
             builder.WhereConditions = row.PrimaryKey(builder);
             return builder;
         }
+
+        public static RowData LoadMissingColumns<T>(this RowData row)
+        {
+            int cols = row.OriginalValues.Keys.Count(x => !x.StartsWith("__"));
+            if (cols < row.Metadata.Columns.Count)
+            {
+                foreach (MetadataColumn col in row.Metadata.Columns.Values.Where(x => !row.OriginalValues.Keys.Contains(x.Name)))
+                {
+                    if (col.DataType == typeof(T))
+                    {
+                        object o = col.DataType.IsValueType ? Activator.CreateInstance(col.DataType) : null;
+                        row.OriginalValues.AddOrUpdate(col.Name, o, (k, v) => { return o; });
+                        row.Columns.Add(col.Name);
+                    }
+                }
+            }
+            return row;
+        }
+
+
+
     }
 }

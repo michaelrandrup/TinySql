@@ -5,7 +5,7 @@
 
 
 <h2>@Model.Title</h2>
-<table class="table table-hover" data-table="@Model.TableName" data-listtype="@Model.ListType" data-listname="@Model.CustomName">
+<table class="table table-hover" data-allownew="@Model.AllowNew" data-allowedit="@Model.AllowEdit" data-allowdelete="@Model.AllowDelete" data-table="@Model.TableName" data-listtype="@Model.ListType" data-listname="@Model.CustomName">
     <thead>
         <tr>
             @foreach (ListColumn column in Model.Columns)

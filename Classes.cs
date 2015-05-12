@@ -362,10 +362,12 @@ namespace TinySql
 
         }
 
+
         public void LoadMetadata(MetadataTable mt, bool CachePrimaryKey = false)
         {
             if (mt == null) { return; }
             _OriginalValues.AddOrUpdate("__TABLE", mt.Fullname, (k, v) => { return mt.Fullname; });
+            
             if (CachePrimaryKey)
             {
                 _OriginalValues.AddOrUpdate("__PK", mt.PrimaryKey.Columns, (k, v) => { return mt.PrimaryKey.Columns; });

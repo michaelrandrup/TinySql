@@ -1,11 +1,32 @@
-﻿function LoadList(tableName, listType, listName, container) {
+﻿$.fn.serializeObject = function () {
+    var o = {};
+    var a = this.serializeArray();
+    $.each(a, function () {
+        if (o[this.name]) {
+            if (!o[this.name].push) {
+                o[this.name] = [o[this.name]];
+            }
+            o[this.name].push(this.value || '');
+        } else {
+            o[this.name] = this.value || '';
+        }
+    });
+    return o;
+};
+
+function LoadList(tableName, listType, listName, container) {
 
     //
     // Load table definition into container
     //
-    $.get("/TinySql/List", { TableName: tableName, ListType: listType, ListName: listName }, function (data, textStatus, jqXHR) {
-        $(container).html(data);
 
+    $.ajax({
+        url: "/TinySql/List",
+        method: "GET",
+        cache: false,
+        data: { TableName: tableName, ListType: listType, ListName: listName }
+    }).success(function (data, textStatus, jqXHR) {
+        $(container).html(data);
     }).error(function (data, textStatus, jqXHR) {
         console.log(data);
         console.log(textStatus);
@@ -56,9 +77,9 @@
 
             var cell = table.cells(this, 0).data()[0];
             var rowIndex = table.row(this).index();
-            var tableName = $('table',container).data("table");
-            var listType = $('table',container).data("listtype");
-            var listName = $('table',container).data("listname");
+            var tableName = $('table', container).data("table");
+            var listType = $('table', container).data("listtype");
+            var listName = $('table', container).data("listname");
 
             $.ajax({
                 url: "/TinySql/Edit",
@@ -81,22 +102,45 @@
 
                         $('.btnsave', '#tinysql').on("click", function (event) {
                             event.preventDefault();
-
-                            $.post("/TinySql/Save", $('form', '#tinysql').serialize(), function (data, textStatus, jqXHR) {
-                                table.row(rowIndex).data(data).draw(false);
-                                $("#dialog").modal('hide');
+                            //$.post("/TinySql/Save",
+                            //    { 
+                            //        Model: $('form', '#tinysql').serialize(),
+                            //        Table: tableName,
+                            //        ListType: listType,
+                            //        ListName: listName
+                            //    },
+                            $.ajax({
+                                url: '/TinySql/Save',
+                                type: 'POST',
+                                contentType: 'application/json',
+                                data: JSON.stringify(
+                                    {
+                                        rowData: JSON.stringify($('form', '#tinysql').serializeObject()),
+                                        Table: tableName,
+                                        ListType: listType,
+                                        ListName: listName
+                                    }
+                                ),
+                                success: function (data, textStatus, jqXHR) {
+                                    table.row(rowIndex).data(data).draw(false);
+                                    $("#dialog").modal('hide');
+                                    
+                                    $(table.row(rowIndex).node()).addClass("success");
+                                    setTimeout(function () {
+                                        $(table.row(rowIndex).node()).removeClass("success");
+                                    }, 1500);
+                                }
                             }).error(function (data, textStatus, jqXHR) {
                                 console.log(data);
                                 console.log(textStatus);
                                 console.log(jqXHR);
                             }).always(function () {
-                                
-                            });
 
+                            });
                         });
                     }
                     else {
-                        alert("hmm?");
+
                     }
                 }
             }).done(function (data) {

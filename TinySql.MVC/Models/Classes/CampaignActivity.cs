@@ -10,10 +10,10 @@ namespace TinySql.MVC.Models
 
 		public Decimal  CampaignActivityTypeID { get; set; }
 
-		[FK("Campaign","CampaignID","dbo","Campaign_CampaignID_CampaignActivity_CampaignID")]
+		[FK("Campaign","CampaignID","dbo","Campaign_CampaignActivity_CampaignID")]
 		public Decimal  CampaignID { get; set; }
 
-		[FK("Contact","ContactID","dbo","Contact_ContactID_CampaignActivity_ContactID")]
+		[FK("Contact","ContactID","dbo","Contact_CampaignActivity_ContactID")]
 		public Decimal  ContactID { get; set; }
 
 		public Nullable<Int32>  Count { get; set; }

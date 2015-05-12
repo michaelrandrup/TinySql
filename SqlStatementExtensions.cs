@@ -980,7 +980,7 @@ namespace TinySql
         private static ConditionGroup WhereInternal<T>(ConditionGroup group, string TableName, string FieldName, SqlOperators Operator, T value, BoolOperators LinkType = BoolOperators.None)
         {
 
-            Table t = group.Builder.Tables.FirstOrDefault(x => x.Name.Equals(TableName, StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(TableName, StringComparison.InvariantCultureIgnoreCase)));
+            Table t = group.Builder.Tables.FirstOrDefault(x => x.Name.Equals(TableName, StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(TableName, StringComparison.InvariantCultureIgnoreCase)) || x.FullName.Equals(TableName, StringComparison.InvariantCultureIgnoreCase));
             if (t == null)
             {
                 throw new InvalidOperationException(string.Format("The WHERE condition table '{0}' does not exist", TableName));
