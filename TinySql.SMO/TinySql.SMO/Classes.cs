@@ -10,6 +10,7 @@ using System.Runtime.Caching;
 using TinySql.Serialization;
 using System.IO;
 using System.Collections.Concurrent;
+using System.Collections.Specialized;
 
 namespace TinySql.Metadata
 {
@@ -744,4 +745,43 @@ namespace TinySql.Metadata
         public string[] values = null;
 
     }
+
+
+    public class SqlExtendedPropertyContainer
+    {
+        private NameValueCollection _Properties = new NameValueCollection();
+
+        public NameValueCollection Properties
+        {
+            get { return _Properties; }
+            set { _Properties = value; }
+        }
+
+        public string Name { get; set; }
+        public string Schema { get; set; }
+    }
+
+    public class TableExtendedProperties : SqlExtendedPropertyContainer
+    {
+        private List<SqlExtendedPropertyContainer> _Columns = new List<SqlExtendedPropertyContainer>();
+
+        public List<SqlExtendedPropertyContainer> Columns
+        {
+            get { return _Columns; }
+            set { _Columns = value; }
+        }
+    }
+
+    public class DatabaseExtendedProperties : SqlExtendedPropertyContainer
+    {
+        private List<TableExtendedProperties> _Tables = new List<TableExtendedProperties>();
+
+        public List<TableExtendedProperties> Tables
+        {
+            get { return _Tables; }
+            set { _Tables = value; }
+        }
+
+    }
+
 }

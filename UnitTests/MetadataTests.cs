@@ -124,12 +124,35 @@ namespace UnitTests
             Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Seconds, "Metadata generated in {0}s"));
             Console.WriteLine("Database contains {0} tables and a total of {1} columns", mdb.Tables.Count, mdb.Tables.Values.SelectMany(x => x.Columns).Count());
             string FileName = System.IO.Path.Combine(System.IO.Path.GetTempPath(), System.IO.Path.GetRandomFileName() + ".json");
+            string FileName2 = System.IO.Path.Combine(System.IO.Path.GetTempPath(), System.IO.Path.GetRandomFileName() + ".bson");
             g = StopWatch.Start();
             mdb.ToFile(FileName);
             Console.WriteLine("Metadata persisted as {0} in {1}ms",FileName, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
             g = StopWatch.Start();
             mdb = SerializationExtensions.FromFile(FileName);
             Console.WriteLine("Metadata read from file '{0}' in {1}ms", FileName, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
+            g = StopWatch.Start();
+            SerializationExtensions.ToFile<MetadataDatabase>(mdb, FileName2, true, false, SerializerFormats.Bson);
+            Console.WriteLine("Metadata persisted as bson {0} in {1}ms", FileName2, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
+            g = StopWatch.Start();
+            mdb = SerializationExtensions.FromFile<MetadataDatabase>(FileName2, SerializerFormats.Bson);
+            Console.WriteLine("Metadata read from file '{0}' in {1}ms", FileName2, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
+
+            FileInfo fi = new FileInfo(FileName);
+            Console.WriteLine("The File {1} is {0:0.00}MB in size", (double)fi.Length / (double)(1024 * 1024),FileName);
+            fi = new FileInfo(FileName2);
+            Console.WriteLine("The File {1} is {0:0.00}MB in size", (double)fi.Length / (double)(1024 * 1024), FileName2);
+
+            File.Delete(FileName);
+            File.Delete(FileName2);
+            Assert.IsTrue(!File.Exists(FileName));
+            Assert.IsTrue(!File.Exists(FileName2));
+
+            
+
+
+
+
         }
 
 
