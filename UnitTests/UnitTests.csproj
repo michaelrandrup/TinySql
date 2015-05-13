@@ -95,6 +95,7 @@
     <Compile Include="IfElseTests.cs" />
     <Compile Include="RowDataTests.cs" />
     <Compile Include="StoredProcedureTests.cs" />
+    <Compile Include="TestRelatedInserts.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TinySql.csproj">
@@ -108,9 +109,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Metadata\CreateMetadata.bat" />
-    <None Include="OrderedInsertTests.orderedtest">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
   <ItemGroup />
   <Choose>

@@ -22,8 +22,9 @@ namespace TinySql
         private List<RowData> _Results = new List<RowData>();
 
         public ResultTable() { }
-        public ResultTable(DataTable dt)
+        public ResultTable(DataTable dt, DateHandlingEnum? DateHandling = null)
         {
+            this.DateHandling = DateHandling;
             Initialize(dt);
         }
 

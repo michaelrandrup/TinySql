@@ -38,7 +38,7 @@ namespace TinySql
                     MetadataColumn c;
                     if (row.ChangedValues.TryGetValue(key, out o) && mt.Columns.TryGetValue(key, out c) && !c.IsReadOnly)
                     {
-                        SqlStatementExtensions.Set(up, key, c.SqlDataType, o, c.DataType, c.Length, c.Precision, c.Scale);
+                        SqlStatementExtensions.Set(up, key, o, c.SqlDataType, c.DataType, c.Length, c.Precision, c.Scale);
                     }
                     else
                     {
@@ -53,7 +53,7 @@ namespace TinySql
                     MetadataColumn c;
                     if (mt.Columns.TryGetValue(key, out c) && !c.IsReadOnly)
                     {
-                        SqlStatementExtensions.Set(up, key, c.SqlDataType, row.Column(key), c.DataType, c.Length, c.Precision, c.Scale);
+                        SqlStatementExtensions.Set(up, key, row.Column(key), c.SqlDataType, c.DataType, c.Length, c.Precision, c.Scale);
                     }
 
                 }
@@ -99,7 +99,7 @@ namespace TinySql
             foreach (string key in row.ChangedValues.Keys)
             {
                 MetadataColumn c = mt[key];
-                SqlStatementExtensions.Set(up, key, c.SqlDataType, row.ChangedValues[key], c.DataType, c.Length, c.Scale);
+                SqlStatementExtensions.Set(up, key, row.ChangedValues[key], c.SqlDataType, c.DataType, c.Length, c.Scale);
             }
             if (Output != null && Output.Length > 0)
             {

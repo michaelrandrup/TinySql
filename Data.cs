@@ -32,6 +32,100 @@ namespace TinySql
             
         }
 
+        public static ResultTable Execute(this IEnumerable<SqlBuilder> Builders, int TimeoutSeconds = 30)
+        {
+            return Execute(Builders.ToArray(), TimeoutSeconds);
+        }
+
+        public static ResultTable Execute(this SqlBuilder[] Builders, int TimeoutSeconds = 30)
+        {
+            Dictionary<string, RowData> results = new Dictionary<string, RowData>();
+            using (TransactionScope trans = new TransactionScope(TransactionScopeOption.RequiresNew, new TransactionOptions()
+            {
+                IsolationLevel = System.Transactions.IsolationLevel.ReadCommitted,
+                Timeout = TimeSpan.FromSeconds(TimeoutSeconds)
+            }))
+            {
+                try
+                {
+                    for (int i = 0; i < Builders.Length; i++)
+                    {
+                        SqlBuilder builder = Builders[i];
+                        if (i > 0)
+                        {
+                            MetadataTable mt = builder.BaseTable().WithMetadata().Model;
+                            foreach (string key in results.Keys)
+                            {
+                                foreach (MetadataForeignKey fk in mt.ForeignKeys.Values.Where(x => (x.ReferencedSchema + "." + x.ReferencedTable).Equals(key, StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    RowData row = results[key];
+                                    foreach (MetadataColumnReference mcr in fk.ColumnReferences)
+                                    {
+                                        if (row.Columns.Contains(mcr.Column.Name))
+                                        {
+                                            Field f = builder.BaseTable().FindField(mcr.Column.Name);
+                                            if (f != null)
+                                            {
+                                                f.Value = row.Column(mcr.Column.Name);
+                                            }
+                                            else
+                                            {
+                                                (builder.BaseTable() as InsertIntoTable).Value(mcr.Column.Name, row.Column(mcr.Column.Name), SqlDbType.VarChar);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        DataTable dt = new DataTable();
+                        using (SqlConnection context = new SqlConnection(builder.ConnectionString))
+                        {
+                            context.Open();
+                            SqlCommand cmd = new SqlCommand(builder.ToSql(), context);
+                            SqlDataAdapter adapter = new SqlDataAdapter(cmd);
+                            adapter.AcceptChangesDuringFill = false;
+                            adapter.Fill(dt);
+                            context.Close();
+                        }
+                        if (dt.Rows.Count > 0)
+                        {
+                            MetadataTable mt = builder.BaseTable().WithMetadata().Model;
+                            if (!results.ContainsKey(mt.Fullname))
+                            {
+                                ResultTable rt = new ResultTable(dt, ResultTable.DateHandlingEnum.None);
+                                results.Add(mt.Fullname, rt.First());
+                            }
+                        }
+                        
+                    }
+                }
+                catch (TransactionException exTrans)
+                {
+                    trans.Dispose();
+                    throw exTrans;
+                }
+                catch (SqlException exSql)
+                {
+                    trans.Dispose();
+                    throw exSql;
+                }
+                catch (ApplicationException exApplication)
+                {
+                    trans.Dispose();
+                    throw exApplication;
+                }
+                trans.Complete();
+            }
+            ResultTable table = new ResultTable();
+            foreach (RowData row in results.Values)
+            {
+                table.Add(row);
+            }
+            return table;
+
+
+        }
+
 
 
         public static DataTable DataTable(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, params object[] Format)

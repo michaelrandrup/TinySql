@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
@@ -105,7 +106,7 @@ namespace TinySql
             }
         }
 
-        public static UpdateTable Set(this UpdateTable table, string FieldName, SqlDbType SqlDataType, object Value, Type DataType, int MaxLength = -1, int Precision = -1, int Scale = -1)
+        public static UpdateTable Set(this UpdateTable table, string FieldName, object Value, SqlDbType SqlDataType, Type DataType, int MaxLength = -1, int Precision = -1, int Scale = -1)
         {
             table.FieldList.Add(new ParameterField()
             {
@@ -124,7 +125,7 @@ namespace TinySql
             return table;
         }
 
-        public static UpdateTable Set<T>(this UpdateTable table, string FieldName, SqlDbType DataType, T Value, int MaxLength = -1, int Scale = -1)
+        public static UpdateTable Set<T>(this UpdateTable table, string FieldName, T Value, SqlDbType DataType, int MaxLength = -1, int Scale = -1)
         {
             table.FieldList.Add(new ParameterField<T>()
             {
@@ -150,11 +151,25 @@ namespace TinySql
                 Name = ParameterName,
                 ParameterName = "@" + ParameterName,
                 ParameterTable = new Table(table.Builder, "inserted", ""),
-                Builder = table.Builder
+                Builder = table.Builder,
+                Table = table
             };
             return table.Output;
         }
 
+        public static TableParameterField PrimaryKey(this TableParameterField table)
+        {
+            MetadataTable mt = table.Table.Builder.Metadata.FindTable(table.Table.FullName);
+            if (mt == null)
+            {
+                throw new InvalidOperationException("Metadata for the table " + table.Table.FullName + " could not be loaded");
+            }
+            foreach (MetadataColumn col in mt.PrimaryKey.Columns)
+            {
+                table.Column(col.Name, col.SqlDataType, col.Length, col.Precision, col.Scale);
+            }
+            return table;
+        }
         public static TableParameterField Column(this TableParameterField table, string FieldName, SqlDbType DataType, int MaxLength = -1, int Precision = -1, int Scale = -1)
         {
 
@@ -167,7 +182,8 @@ namespace TinySql
                 Scale = Scale,
                 SqlDataType = DataType,
                 Table = table.ParameterTable
-            });
+            }.PopulateField()
+            );
             return table;
         }
 
@@ -193,14 +209,15 @@ namespace TinySql
                 ParameterName = "@" + ParameterName,
                 Name = ParameterName,
                 ParameterTable = new Table(table.Builder, "inserted", ""),
-                Builder = table.Builder
+                Builder = table.Builder,
+                Table = table
             };
             return table.Output;
         }
 
         public static InsertIntoTable InsertTable(this TableParameterField table)
         {
-            return table.Builder.BaseTable() as InsertIntoTable;
+            return table.Table as InsertIntoTable;
         }
 
 
@@ -220,7 +237,7 @@ namespace TinySql
             }
         }
 
-        public static InsertIntoTable Value<T>(this InsertIntoTable table, string FieldName, SqlDbType DataType, T Value, int MaxLength = -1, int Scale = -1)
+        public static InsertIntoTable Value<T>(this InsertIntoTable table, string FieldName, T Value, SqlDbType DataType, int MaxLength = -1, int Scale = -1)
         {
             table.FieldList.Add(new ParameterField<T>()
             {
@@ -276,6 +293,11 @@ namespace TinySql
                 b = b.ParentBuilder;
             }
             return b;
+        }
+
+        public static SqlBuilder Builder(this TableParameterField field)
+        {
+            return field.Builder.Builder();
         }
 
 
@@ -504,6 +526,24 @@ namespace TinySql
 
         #region JOIN conditions
 
+        public static Table SubSelect(this Table table, string TableName)
+        {
+            MetadataTable mt = table.Builder.Metadata.FindTable(table.FullName);
+            if (mt == null)
+            {
+                throw new InvalidOperationException("Metadata for the table " + table.FullName + " could not be found");
+            }
+            MetadataTable mtTo = table.Builder.Metadata.FindTable(TableName);
+            List<MetadataForeignKey> Fks = mtTo.ForeignKeys.Values.Where(x => x.ReferencedTable == mt.Name && x.ReferencedSchema == mt.Schema).ToList();
+            if (Fks.Count != 1)
+            {
+                throw new InvalidOperationException(string.Format("Extended one relationship to the table {0}. Found {1}.", mtTo.Fullname, Fks.Count));
+            }
+
+            MetadataForeignKey FK = Fks.First();
+            return table.SubSelect(mtTo.Name, mt.PrimaryKey.Columns.First().Name, FK.ColumnReferences.First().Name, null, mt.Schema, null);
+        }
+
         public static Table SubSelect(this Table table, string TableName, string FromField, string ToField, string Alias = null, string Schema = null, string BuilderName = null)
         {
             string key = table.Alias + "." + FromField + ":" + (Alias ?? (Schema != null ? Schema + "." : "") + TableName) + "." + ToField;
@@ -583,8 +623,8 @@ namespace TinySql
             {
                 right = null;
             }
-            
-            
+
+
             if (right == null)
             {
                 right = FromTable.Builder.From(ToTable, Alias, Schema);
@@ -1029,6 +1069,11 @@ namespace TinySql
             return group;
         }
 
+        internal static Field PopulateField(this Field f)
+        {
+            f.TryPopulateField();
+            return f;
+        }
         internal static bool TryPopulateField(this Field f)
         {
             if (f.Table == null)

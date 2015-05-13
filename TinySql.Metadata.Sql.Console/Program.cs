@@ -41,6 +41,36 @@ namespace TinySql.Metadata.Sql.CommandLine
             {
                 Environment.Exit(CreateMetadata(true));
             }
+            else if (Command == Commands.ExportProperties)
+            {
+                Environment.Exit(ExportProperties());
+            }
+        }
+
+        private static int ExportProperties()
+        {
+            ConsoleColor c = Console.ForegroundColor;
+            try
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("Connecting to " + ConnectionString);
+                SqlMetadataDatabase db = SqlMetadataDatabase.FromConnection(ConnectionString, true, File.Exists(OutputFile) ? OutputFile : null);
+                db.MetadataUpdateEvent += db_MetadataUpdateEvent;
+                DatabaseExtendedProperties props = db.ExportExtendedProperties();
+                SerializationExtensions.ToFile<DatabaseExtendedProperties>(props, OutputFile, true);
+                Console.WriteLine("Properties saved to {0}", OutputFile);
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(ex.Message);
+                return 1;
+            }
+            finally
+            {
+                Console.ForegroundColor = c;
+            }
+            return 0;
         }
 
         private static int CreateMetadata(bool Update = false)
@@ -102,7 +132,7 @@ namespace TinySql.Metadata.Sql.CommandLine
         private static void WriteHelp()
         {
             Console.WriteLine("Command line parameters for creating and updating metadata and classes:");
-            Console.WriteLine("(required) [update|create] Will either create or update metadata. if 'update' is specified, you must also specify the output parameter to point to an existing metadata file to be updated");
+            Console.WriteLine("(required) [update|create|Exportprop|Importprop] Will either create or update metadata. if 'update' is specified, you must also specify the output parameter to point to an existing metadata file to be updated");
             Console.WriteLine("(required) [connection|con]:\"<sql connection string>\": The connection string to use");
             Console.WriteLine("(optional) [output|out]:\"<path to output file>\": Path to the file where the metadata is json serialized. Specify an existing file to update the file with modified metadata from the database");
             Console.WriteLine("(optional) [tables]:<table1,table2...table n>: Comma separated list of tables to generate metadata for");
@@ -130,7 +160,9 @@ namespace TinySql.Metadata.Sql.CommandLine
         {
             Unknown,
             CreateMetadata,
-            UpdateMetadata
+            UpdateMetadata,
+            ExportProperties,
+            ImportProperties
         }
         private static Commands Command = Commands.Unknown;
         private static bool CreateClasses = false;
@@ -195,6 +227,14 @@ namespace TinySql.Metadata.Sql.CommandLine
                     else if (cmd[0].Equals("update", StringComparison.OrdinalIgnoreCase))
                     {
                         Command = Commands.UpdateMetadata;
+                    }
+                    else if (cmd[0].Equals("exportprop", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Command = Commands.ExportProperties;
+                    }
+                    else if (cmd[0].Equals("importprop", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Command = Commands.ImportProperties;
                     }
                     else if (cmd[0].Equals("wait", StringComparison.OrdinalIgnoreCase))
                     {

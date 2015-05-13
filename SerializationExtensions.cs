@@ -69,7 +69,15 @@ namespace TinySql.Serialization
 
         public static void ToFile<T>(T Object, string FileName, bool CreateDirectory = true, bool FormatOutput = false, SerializerFormats FileFormat = SerializerFormats.Json)
         {
-            string Ext = FileFormat == SerializerFormats.Json ? ".json" : ".bson";
+            if (FileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            {
+                FileFormat = SerializerFormats.Json;
+            }
+            else if (FileName.EndsWith(".bson", StringComparison.OrdinalIgnoreCase))
+            {
+                FileFormat = SerializerFormats.Bson;
+            }
+            string Ext = FileFormat == SerializerFormats.Json ? "json" : "bson";
             if (CreateDirectory)
             {
                 if (!Directory.Exists(Path.GetDirectoryName(FileName)))
