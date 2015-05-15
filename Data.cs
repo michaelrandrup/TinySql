@@ -18,28 +18,98 @@ namespace TinySql
         {
             if (UseCache && CacheProvider.UseResultCache)
             {
-               if (CacheProvider.ResultCache.IsCached(Builder))
+                if (CacheProvider.ResultCache.IsCached(Builder))
                 {
                     return CacheProvider.ResultCache.Get(Builder);
                 }
             }
-            ResultTable result = new ResultTable(Builder, TimeoutSeconds, WithMetadata,DateHandling, Format);
+            ResultTable result = new ResultTable(Builder, TimeoutSeconds, WithMetadata, DateHandling, Format);
             if (CacheProvider.UseResultCache)
             {
                 CacheProvider.ResultCache.Add(Builder, result);
             }
             return result;
-            
+
         }
 
-        public static ResultTable Execute(this IEnumerable<SqlBuilder> Builders, int TimeoutSeconds = 30)
+
+
+        public static ResultTable Execute(this List<SqlBuilder> Builders, int TimeoutSeconds = 30)
         {
             return Execute(Builders.ToArray(), TimeoutSeconds);
         }
 
+        private static ResultTable ExecuteRelatedInternal(SqlBuilder builder, Dictionary<string, RowData> results)
+        {
+            if (results.Count > 0)
+            {
+                MetadataTable mt = builder.BaseTable().WithMetadata().Model;
+                foreach (string key in results.Keys)
+                {
+                    foreach (MetadataForeignKey fk in mt.ForeignKeys.Values.Where(x => (x.ReferencedSchema + "." + x.ReferencedTable).Equals(key, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        RowData row = results[key];
+                        foreach (MetadataColumnReference mcr in fk.ColumnReferences)
+                        {
+                            if (row.Columns.Contains(mcr.Column.Name))
+                            {
+                                Field f = builder.BaseTable().FindField(mcr.Column.Name);
+                                if (f != null)
+                                {
+                                    f.Value = row.Column(mcr.Column.Name);
+                                }
+                                else
+                                {
+                                    (builder.BaseTable() as InsertIntoTable).Value(mcr.Column.Name, row.Column(mcr.Column.Name), SqlDbType.VarChar);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            DataTable dt = new DataTable();
+            ResultTable table = new ResultTable();
+            using (SqlConnection context = new SqlConnection(builder.ConnectionString))
+            {
+                context.Open();
+                SqlCommand cmd = new SqlCommand(builder.ToSql(), context);
+                SqlDataAdapter adapter = new SqlDataAdapter(cmd);
+                adapter.AcceptChangesDuringFill = false;
+                adapter.Fill(dt);
+                context.Close();
+            }
+
+            if (builder.SubQueries.Count > 0)
+            {
+                Dictionary<string, RowData> subresults = new System.Collections.Generic.Dictionary<string, RowData>(results);
+                if (dt.Rows.Count > 0)
+                {
+                    MetadataTable mt = builder.BaseTable().WithMetadata().Model;
+                    if (!subresults.ContainsKey(mt.Fullname))
+                    {
+                        ResultTable rt = new ResultTable(dt, ResultTable.DateHandlingEnum.None);
+                        RowData row = rt.First();
+                        table.Add(row);
+                        subresults.Add(mt.Fullname, row);
+                    }
+                }
+                foreach (SqlBuilder Builder in builder.SubQueries.Values)
+                {
+                    ResultTable sub = ExecuteRelatedInternal(Builder, subresults);
+                    foreach (RowData row in sub)
+                    {
+                        table.Add(row);
+                    }
+                }
+            }
+            return table;
+
+
+        }
+
         public static ResultTable Execute(this SqlBuilder[] Builders, int TimeoutSeconds = 30)
         {
-            Dictionary<string, RowData> results = new Dictionary<string, RowData>();
+            ResultTable table = new ResultTable();
             using (TransactionScope trans = new TransactionScope(TransactionScopeOption.RequiresNew, new TransactionOptions()
             {
                 IsolationLevel = System.Transactions.IsolationLevel.ReadCommitted,
@@ -48,35 +118,8 @@ namespace TinySql
             {
                 try
                 {
-                    for (int i = 0; i < Builders.Length; i++)
+                    foreach (SqlBuilder builder in Builders)
                     {
-                        SqlBuilder builder = Builders[i];
-                        if (i > 0)
-                        {
-                            MetadataTable mt = builder.BaseTable().WithMetadata().Model;
-                            foreach (string key in results.Keys)
-                            {
-                                foreach (MetadataForeignKey fk in mt.ForeignKeys.Values.Where(x => (x.ReferencedSchema + "." + x.ReferencedTable).Equals(key, StringComparison.OrdinalIgnoreCase)))
-                                {
-                                    RowData row = results[key];
-                                    foreach (MetadataColumnReference mcr in fk.ColumnReferences)
-                                    {
-                                        if (row.Columns.Contains(mcr.Column.Name))
-                                        {
-                                            Field f = builder.BaseTable().FindField(mcr.Column.Name);
-                                            if (f != null)
-                                            {
-                                                f.Value = row.Column(mcr.Column.Name);
-                                            }
-                                            else
-                                            {
-                                                (builder.BaseTable() as InsertIntoTable).Value(mcr.Column.Name, row.Column(mcr.Column.Name), SqlDbType.VarChar);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
                         DataTable dt = new DataTable();
                         using (SqlConnection context = new SqlConnection(builder.ConnectionString))
                         {
@@ -87,16 +130,30 @@ namespace TinySql
                             adapter.Fill(dt);
                             context.Close();
                         }
-                        if (dt.Rows.Count > 0)
+
+                        if (builder.SubQueries.Count > 0)
                         {
-                            MetadataTable mt = builder.BaseTable().WithMetadata().Model;
-                            if (!results.ContainsKey(mt.Fullname))
+                            Dictionary<string, RowData> results = new Dictionary<string, RowData>();
+                            if (dt.Rows.Count > 0)
                             {
-                                ResultTable rt = new ResultTable(dt, ResultTable.DateHandlingEnum.None);
-                                results.Add(mt.Fullname, rt.First());
+                                MetadataTable mt = builder.BaseTable().WithMetadata().Model;
+                                if (!results.ContainsKey(mt.Fullname))
+                                {
+                                    ResultTable rt = new ResultTable(dt, ResultTable.DateHandlingEnum.None);
+                                    RowData row = rt.First();
+                                    results.Add(mt.Fullname, row);
+                                    table.Add(row);
+                                }
+                            }
+                            foreach (SqlBuilder Builder in builder.SubQueries.Values)
+                            {
+                                ResultTable sub = ExecuteRelatedInternal(Builder, results);
+                                foreach (RowData row in sub)
+                                {
+                                    table.Add(row);
+                                }
                             }
                         }
-                        
                     }
                 }
                 catch (TransactionException exTrans)
@@ -116,11 +173,7 @@ namespace TinySql
                 }
                 trans.Complete();
             }
-            ResultTable table = new ResultTable();
-            foreach (RowData row in results.Values)
-            {
-                table.Add(row);
-            }
+
             return table;
 
 
@@ -398,7 +451,7 @@ namespace TinySql
             return builder.Dictionary<TKey, T>(TKeyPropertyName, ConnectionString, TimeoutSeconds, AllowPrivateProperties, EnforceTypesafety, Format);
         }
 
-        public static S Dictionary<TKey, T, S>(this SqlBuilder Builder, string TKeyPropertyName, DataTable dataTable, bool AllowPrivateProperties, bool EnforceTypesafety) where S : IDictionary<TKey, T>
+        public static S Dictionary<TKey, T, S>(this SqlBuilder Builder, string TKeyPropertyName, DataTable dataTable, bool AllowPrivateProperties, bool EnforceTypesafety, Func<S, TKey, T, bool> InsertUpdateDelegate = null) where S : IDictionary<TKey, T>
         {
             IDictionary<TKey, T> dict = Activator.CreateInstance<S>() as IDictionary<TKey, T>;
             foreach (DataRow row in dataTable.Rows)
@@ -407,12 +460,33 @@ namespace TinySql
                 PropertyInfo prop = instance.GetType().GetProperty(TKeyPropertyName);
                 if (prop != null)
                 {
-                    dict.Add((TKey)prop.GetValue(instance, null), instance);
+                    if (InsertUpdateDelegate != null)
+                    {
+                        if (!InsertUpdateDelegate((S)dict, (TKey)prop.GetValue(instance, null), instance))
+                        {
+                            throw new InvalidOperationException("The InsertUpdate delegate failed to insert or update the dictionary " + typeof(S).Name);
+                        }
+                    }
+                    else
+                    {
+                        dict.Add((TKey)prop.GetValue(instance, null), instance);
+                    }
                 }
                 else
                 {
                     FieldInfo field = instance.GetType().GetField(TKeyPropertyName);
-                    dict.Add((TKey)field.GetValue(instance), instance);
+                    if (InsertUpdateDelegate != null)
+                    {
+                        if (!InsertUpdateDelegate((S)dict, (TKey)field.GetValue(instance), instance))
+                        {
+                            throw new InvalidOperationException("The InsertUpdate delegate failed to insert or update the dictionary " + typeof(S).Name);
+                        }
+                    }
+                    else
+                    {
+                        dict.Add((TKey)field.GetValue(instance), instance);
+                    }
+
                 }
             }
             return (S)dict;

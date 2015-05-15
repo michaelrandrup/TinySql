@@ -21,8 +21,13 @@ namespace UnitTests
                 .Builder;
             decimal Accountid = max.Execute().First().Column<decimal>("AccountID");
 
-            List<SqlBuilder> builders = new List<SqlBuilder>() {
-            SqlBuilder.Insert()
+            int numAccounts = 5;
+            int numContacts = 10;
+            int numActivities = 5;
+            List<SqlBuilder> builders = new List<SqlBuilder>();
+            for (int i = 0; i < numAccounts; i++)
+            {
+                SqlBuilder AccountBuilder = SqlBuilder.Insert()
                 .Into("Account")
                 .Value("Name", "Account " + DateTime.Now.ToString(), System.Data.SqlDbType.VarChar)
                 .Value("AccountTypeID", 1, System.Data.SqlDbType.VarChar)
@@ -35,34 +40,74 @@ namespace UnitTests
                 .Value("OwningUserID", 2, System.Data.SqlDbType.VarChar)
                 .Value("OwningBusinessUnitID", 2, System.Data.SqlDbType.VarChar)
                     .Output().PrimaryKey()
-                .Builder()
-            };
+                .Builder();
 
-            for (int i = 0; i < 10; i++)
-			{
-			    builders.Add(
-                     SqlBuilder.Insert()
-                    .Into("Contact")
-                    .Value("Name","Contact " + DateTime.Now.ToString(), SqlDbType.VarChar)
-                    .Value("AccountID",0, SqlDbType.VarChar)
-                    .Value("JobfunctionID",1, SqlDbType.VarChar)
-                    .Value("JobpositionID", 1, SqlDbType.VarChar)
-                    .Value("DataSourceID", 1, System.Data.SqlDbType.VarChar)
-                    .Value("StateID", 1, System.Data.SqlDbType.VarChar)
-                    .Value("CreatedBy", 2, System.Data.SqlDbType.VarChar)
-                    .Value("CreatedOn", DateTime.Now, System.Data.SqlDbType.VarChar)
-                    .Value("ModifiedBy", 2, System.Data.SqlDbType.VarChar)
-                    .Value("ModifiedOn", DateTime.Now, System.Data.SqlDbType.VarChar)
-                    .Value("OwningUserID", 2, System.Data.SqlDbType.VarChar)
-                    .Value("OwningBusinessUnitID", 2, System.Data.SqlDbType.VarChar)
-                        .Output().PrimaryKey()
-                    .Builder()
-                    );
-			}
+                for (int x = 0; x < numContacts; x++)
+                {
+                    SqlBuilder ContactBuilder = 
+                         SqlBuilder.Insert()
+                        .Into("Contact")
+                        .Value("Name", "Contact " + DateTime.Now.ToString(), SqlDbType.VarChar)
+                        .Value("AccountID", 0, SqlDbType.VarChar)
+                        .Value("JobfunctionID", 1, SqlDbType.VarChar)
+                        .Value("JobpositionID", 1, SqlDbType.VarChar)
+                        .Value("DataSourceID", 1, System.Data.SqlDbType.VarChar)
+                        .Value("StateID", 1, System.Data.SqlDbType.VarChar)
+                        .Value("CreatedBy", 2, System.Data.SqlDbType.VarChar)
+                        .Value("CreatedOn", DateTime.Now, System.Data.SqlDbType.VarChar)
+                        .Value("ModifiedBy", 2, System.Data.SqlDbType.VarChar)
+                        .Value("ModifiedOn", DateTime.Now, System.Data.SqlDbType.VarChar)
+                        .Value("OwningUserID", 2, System.Data.SqlDbType.VarChar)
+                        .Value("OwningBusinessUnitID", 2, System.Data.SqlDbType.VarChar)
+                            .Output().PrimaryKey()
+                        .Builder();
+
+                    for (int y = 0; y < numActivities; y++)
+                    {
+                        ContactBuilder.AddSubQuery(
+                            "Activity" + y.ToString(),
+                             SqlBuilder.Insert()
+                            .Into("Activity")
+                            .Value("ActivityTypeID", 1, SqlDbType.VarChar)
+                            .Value("Title", "Activity " + DateTime.Now.ToString(), SqlDbType.VarChar)
+                            .Value("Date", DateTime.Now.AddDays(1), SqlDbType.VarChar)
+                            .Value("ActivityStatusID", 1, SqlDbType.VarChar)
+                            .Value("CreatedBy", 2, System.Data.SqlDbType.VarChar)
+                            .Value("CreatedOn", DateTime.Now, System.Data.SqlDbType.VarChar)
+                            .Value("ModifiedBy", 2, System.Data.SqlDbType.VarChar)
+                            .Value("ModifiedOn", DateTime.Now, System.Data.SqlDbType.VarChar)
+                            .Value("OwningUserID", 2, System.Data.SqlDbType.VarChar)
+                            .Value("OwningBusinessUnitID", 2, System.Data.SqlDbType.VarChar)
+                                .Output().PrimaryKey()
+                            .Builder()
+                            );
+                    }
+
+
+                    AccountBuilder.AddSubQuery("Contact" + x.ToString(), ContactBuilder);
+
+                }
+
+                
+
+                builders.Add(AccountBuilder);
+            }
+
+
 
             ResultTable results = builders.Execute();
-            Assert.IsTrue(results.Count == 2);
-
+            Assert.IsTrue(results.Count >= numAccounts);
+            Console.WriteLine("Inserted {0} accounts with {1} contacts with {2} activities. Total = {3}", numAccounts, numContacts, numActivities, numActivities * numContacts * numActivities);
+            Console.WriteLine("{0} Results returned:", results.Count);
+            foreach (RowData r in results)
+            {
+                foreach (string c in r.Columns)
+                {
+                    Console.Write("{0} = {1}. ", c, r.Column(c));
+                }
+                Console.WriteLine("");
+            }
+            Console.WriteLine("");
             SqlBuilder builder = SqlBuilder.Select()
                 .From("Account").AllColumns()
                 .Where("Account", "AccountID", SqlOperators.Equal, results.First().Column("AccountID"))
@@ -86,7 +131,7 @@ namespace UnitTests
                 .Where<decimal>("Account", "AccountID", SqlOperators.GreaterThan, Accountid)
                 .Builder();
 
-            Assert.IsTrue(builder.ExecuteNonQuery() == 1);
+            Assert.IsTrue(builder.ExecuteNonQuery() == numAccounts);
 
             Console.WriteLine("Account ID {0} deleted", row.AccountID);
         }

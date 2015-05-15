@@ -71,14 +71,10 @@ namespace TinySql.Metadata
             foreach (ExtendedProperty prop in properties)
             {
                 prop.Refresh();
-                container.Properties.TryAdd(prop.Name,prop.Value.ToString());
+                container.Properties.TryAdd(prop.Name, prop.Value.ToString());
             }
         }
 
-        public void ImportExtendedProperties(DatabaseExtendedProperties dep)
-        {
-            SqlDatabase.Refresh();
-        }
 
         private bool UpdateExtendedProperties(ExtendedPropertyCollection properties, SqlExtendedPropertyContainer container)
         {
@@ -111,40 +107,43 @@ namespace TinySql.Metadata
             return DoAlter;
 
         }
-        public void ImportExtendedProperties()
+        public void ImportExtendedProperties(DatabaseExtendedProperties dep)
         {
-            //double t = 0;
-            //SqlDatabase.Refresh();
-            //double total = SqlDatabase.Tables.Count;
-            //// bool DoAlter = UpdateExtendedProperties(SqlDatabase.ExtendedProperties,)
-            //RaiseUpdateEvent(0, "Database level extended properties extported");
-            //foreach (Microsoft.SqlServer.Management.Smo.Table table in SqlDatabase.Tables)
-            //{
-            //    table.Refresh();
-            //    TableExtendedProperties tep = new TableExtendedProperties();
-            //    RetrieveExtendedProperties(table.ExtendedProperties, tep);
-            //    tep.Schema = table.Schema;
-            //    tep.Name = table.Schema;
-            //    foreach (Column column in table.Columns)
-            //    {
-            //        SqlExtendedPropertyContainer cep = new SqlExtendedPropertyContainer();
-            //        RetrieveExtendedProperties(column.ExtendedProperties, cep);
-            //        if (cep.Properties.Count > 0)
-            //        {
-            //            cep.Schema = column.DefaultSchema;
-            //            cep.Name = column.Name;
-            //            tep.Columns.Add(cep);
-            //        }
-            //    }
-            //    if (tep.Properties.Count > 0 || tep.Columns.Count > 0)
-            //    {
-            //        dep.Tables.Add(tep);
-            //    }
-            //    t++;
-            //    RaiseUpdateEvent(Convert.ToInt32((t / total) * 100), table.Schema + "." + table.Name + " extended properties exported");
-            //}
+            double t = 0;
+            SqlDatabase.Refresh();
+            double total = dep.Tables.Count;
+            // bool DoAlter = UpdateExtendedProperties(SqlDatabase.ExtendedProperties,)
+            RaiseUpdateEvent(0, "Database level extended properties extported");
+            foreach (Microsoft.SqlServer.Management.Smo.Table table in SqlDatabase.Tables)
+            {
+                TableExtendedProperties tep = dep.Tables.FirstOrDefault(x => x.Name.Equals(table.Name, StringComparison.OrdinalIgnoreCase) && x.Schema.Equals(table.Schema, StringComparison.OrdinalIgnoreCase));
+                if (tep != null)
+                {
+                    table.Refresh();
+                    bool alter = UpdateExtendedProperties(table.ExtendedProperties, tep);
+                    if (tep.Columns.Count > 0)
+                    {
+                        foreach (Column column in table.Columns)
+                        {
+                            SqlExtendedPropertyContainer cep = tep.Columns.FirstOrDefault(x => x.Name.Equals(column.Name));
+                            if (cep != null)
+                            {
+                                if (UpdateExtendedProperties(column.ExtendedProperties, cep))
+                                {
+                                    column.Alter();
+                                }
+                            }
+                        }
+                    }
+                    if (alter)
+                    {
+                        table.Alter();
+                    }
+                    t++;
+                    RaiseUpdateEvent(Convert.ToInt32((t / total) * 100), table.Schema + "." + table.Name + " extended properties imported");
+                }
+            }
 
-            //return dep;
         }
         public DatabaseExtendedProperties ExportExtendedProperties()
         {
@@ -152,8 +151,8 @@ namespace TinySql.Metadata
             double t = 0;
             SqlDatabase.Refresh();
             double total = SqlDatabase.Tables.Count;
-            RetrieveExtendedProperties(SqlDatabase.ExtendedProperties,dep);
-            RaiseUpdateEvent(0,"Database level extended properties extported");
+            RetrieveExtendedProperties(SqlDatabase.ExtendedProperties, dep);
+            RaiseUpdateEvent(0, "Database level extended properties extported");
             foreach (Microsoft.SqlServer.Management.Smo.Table table in SqlDatabase.Tables)
             {
                 table.Refresh();
@@ -179,7 +178,7 @@ namespace TinySql.Metadata
                 t++;
                 RaiseUpdateEvent(Convert.ToInt32((t / total) * 100), table.Schema + "." + table.Name + " extended properties exported");
             }
-            
+
             return dep;
         }
 
@@ -382,7 +381,7 @@ namespace TinySql.Metadata
                                 string[] v = value.Split(new char[] { '=' }, StringSplitOptions.RemoveEmptyEntries);
                                 col.DisplayNames.TryAdd(Convert.ToInt32(v[0]), v[1]);
                             }
-                            
+
                         }
                     }
 
@@ -657,7 +656,7 @@ namespace TinySql.Metadata
             return null;
         }
 
-        
+
 
 
 

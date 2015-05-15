@@ -239,7 +239,7 @@ namespace TinySql
 
         public static InsertIntoTable Value<T>(this InsertIntoTable table, string FieldName, T Value, SqlDbType DataType, int MaxLength = -1, int Scale = -1)
         {
-            table.FieldList.Add(new ParameterField<T>()
+            Field f = new ParameterField<T>()
             {
                 Builder = table.Builder,
                 Name = FieldName,
@@ -248,7 +248,9 @@ namespace TinySql
                 Scale = Scale,
                 SqlDataType = DataType,
                 FieldValue = Value
-            });
+            };
+
+            table.FieldList.Add(f.PopulateField());
             return table;
         }
 

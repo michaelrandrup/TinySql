@@ -112,7 +112,11 @@ namespace TinySql
         }
         public SqlBuilder AddSubQuery(string Name, SqlBuilder Builder)
         {
-            Builder.ParentBuilder = this;
+            if (Builder.StatementType != StatementTypes.Insert && Builder.StatementType != StatementTypes.Update)
+            {
+                // Only set the parent builder for statements that share parameter declarations
+                Builder.ParentBuilder = this;
+            }
             return _SubQueries.AddOrUpdate(Name, Builder, (k, v) => { return Builder; });
 
         }
