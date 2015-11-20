@@ -28,7 +28,7 @@ namespace TinySql
             Initialize(dt);
         }
 
-        public ResultTable(SqlBuilder builder, int TimeoutSeconds = 60, bool WithMetadata = true, DateHandlingEnum? DateHandling = null, params object[] Format)
+        public ResultTable(SqlBuilder builder, int TimeoutSeconds = 60, bool WithMetadata = true, DateHandlingEnum? DateHandling = null, string UseHiearchyField = null, params object[] Format)
         {
             DataSet ds = builder.DataSet(builder.ConnectionString, TimeoutSeconds, Format);
             Table bt = builder.BaseTable();
@@ -69,9 +69,13 @@ namespace TinySql
                         _pk.Add(rd.Column(Column.Name));
                         Sort += (!string.IsNullOrEmpty(Sort) ? ", " : "") + Column.Name + " ASC";
                     }
+                    if (!string.IsNullOrEmpty(UseHiearchyField))
+                    {
+                        Sort = UseHiearchyField + " ASC";
+                    }
                     dv.Sort = Sort;
                     DataRowView[] filteredRows = dv.FindRows(_pk.ToArray());
-                    SubTable(rd, kv.Value, filteredRows, ds, CurrentTable, this.Metadata.Name, this.WithMetadata);
+                    SubTable(rd, kv.Value, filteredRows, ds, CurrentTable, this.Metadata.Name, this.WithMetadata, UseHiearchyField);
                 }
 
             }
@@ -85,7 +89,7 @@ namespace TinySql
             }
             return null;
         }
-        private void SubTable(RowData Parent, SqlBuilder builder, DataRowView[] rows, DataSet ds, int CurrentTable, string key, bool WithMetadata)
+        private void SubTable(RowData Parent, SqlBuilder builder, DataRowView[] rows, DataSet ds, int CurrentTable, string key, bool WithMetadata, string UseHierachyField = null)
         {
             ResultTable rt = new ResultTable();
             rt.WithMetadata = WithMetadata;
@@ -124,9 +128,13 @@ namespace TinySql
                         _pk.Add(rd.Column(Column.Name));
                         Sort += (!string.IsNullOrEmpty(Sort) ? ", " : "") + Column.Name + " ASC";
                     }
+                    if (!string.IsNullOrEmpty(UseHierachyField))
+                    {
+                        Sort = UseHierachyField + " ASC";
+                    }
                     dv.Sort = Sort;
                     DataRowView[] filteredRows = dv.FindRows(_pk.ToArray());
-                    SubTable(rd, kv.Value, filteredRows, ds, CurrentTable, rt.Metadata.Name, WithMetadata);
+                    SubTable(rd, kv.Value, filteredRows, ds, CurrentTable, rt.Metadata.Name, WithMetadata, UseHierachyField);
                 }
             }
 
@@ -1135,7 +1143,7 @@ namespace TinySql
         public override string ToSql()
         {
             string sql = null;
-            object o = GetFieldValue(DataType == null ? Value.GetType() : DataType, Value);
+            object o = GetFieldValue(DataType == null ? Value.GetType() : DataType, Value, this.Builder.Culture);
             if (o == null)
             {
                 sql = "NULL";
@@ -1428,6 +1436,15 @@ namespace TinySql
                     sql += string.Format("({0})", MaxLength);
                 }
             }
+            else if (SqlDataType == SqlDbType.Char || SqlDataType == SqlDbType.NChar)
+            {
+                if (MaxLength > 0)
+                {
+                    sql += string.Format("({0})", MaxLength);
+                }
+            }
+
+
             //else if (SqlDataType == SqlDbType.Xml)
             //{
             //    if (Value.GetType() == typeof(XmlDocument))

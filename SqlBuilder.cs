@@ -279,7 +279,7 @@ namespace TinySql
                 set += field.SetParameter() + "\r\n";
             }
 
-            if (BaseTable.Output != null)
+            if (BaseTable.Output != null && BaseTable.Output.ParameterTable.FieldList.Count > 0)
             {
                 tb.AddDeclaration(BaseTable.Output.ParameterName, BaseTable.Output.DeclareParameter());
                 outputSelect += BaseTable.Output.SetParameter() + "\r\n";
@@ -288,7 +288,7 @@ namespace TinySql
 
             sb.AppendLine(set);
             sb.AppendFormat(" INSERT  INTO {0}({1})\r\n", BaseTable.Alias, BaseTable.ToSql());
-            if (BaseTable.Output != null)
+            if (BaseTable.Output != null && BaseTable.Output.ParameterTable.FieldList.Count > 0)
             {
                 sb.AppendFormat("OUTPUT  {0}\r\n", BaseTable.Output.ToSql());
             }
@@ -434,7 +434,7 @@ namespace TinySql
                 tb.AddDeclaration(field.ParameterName, field.DeclareParameter());
                 set += field.SetParameter() + "\r\n";
             }
-            if (BaseTable.Output != null)
+            if (BaseTable.Output != null && BaseTable.Output.ParameterTable.FieldList.Count > 0)
             {
                 tb.AddDeclaration(BaseTable.Output.ParameterName, BaseTable.Output.DeclareParameter());
                 outputSelect += BaseTable.Output.SetParameter() + "\r\n";
@@ -446,7 +446,7 @@ namespace TinySql
 
             sb.AppendFormat("UPDATE  {0}\r\n", BaseTable.Name);
             sb.AppendFormat("   SET  {0}\r\n", BaseTable.ToSql());
-            if (BaseTable.Output != null)
+            if (BaseTable.Output != null && BaseTable.Output.ParameterTable.FieldList.Count > 0)
             {
                 sb.AppendFormat("OUTPUT  {0}\r\n", BaseTable.Output.ToSql());
             }

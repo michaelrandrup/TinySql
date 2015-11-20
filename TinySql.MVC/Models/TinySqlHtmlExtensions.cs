@@ -42,14 +42,15 @@ namespace TinySql.UI
             }
             else if (model.Field.FieldType == FieldTypes.TextArea)
             {
-                ctrl = string.Format("<textarea id=\"{0}\" name=\"{1}\" class=\"{2}\" placeholder=\"{3}\" rows=\"{4}\" {5}>{6}</textarea>",
+                ctrl = string.Format("<textarea id=\"{0}\" name=\"{1}\" class=\"{2}\" placeholder=\"{3}\" rows=\"{4}\" {7} {5}>{6}</textarea>",
                     model.Field.ID,
                     model.Field.ControlName,
                     model.Field.CssInputControlLayout,
                     model.Field.NullText,
                     model.Field.MultiLineInputRows,
                     model.Field.IsReadOnly ? "disabled": "",
-                    model.Data != null ? Convert.ToString(model.Data) : ""
+                    model.Data != null ? Convert.ToString(model.Data) : "",
+                    model.Field.IsRequired && !model.Field.IsReadOnly ? "required" : ""
                     );
             }
             else if (model.Field.FieldType == FieldTypes.Checkbox)
@@ -57,7 +58,7 @@ namespace TinySql.UI
                 bool b;
                 if (bool.TryParse(model.Data.ToString(), out b))
                 {
-                    ctrl = string.Format("<label><input type=\"checkbox\" value=\"true\" name=\"{1}\" id=\"input{0}\" {2}> {3}</label>",
+                    ctrl = string.Format("<label><input type=\"checkbox\" value=\"true\" name=\"{1}\" id=\"input{0}\" {2} > {3}</label>",
                         model.Field.ID,
                         model.Field.ControlName,
                         // model.Data == null ? "" : Convert.ToString(model.Data),

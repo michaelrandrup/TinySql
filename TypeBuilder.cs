@@ -179,7 +179,19 @@ namespace TinySql
                             }
                             else
                             {
-                                prop.SetValue(instance, row[col.ColumnName], null);
+                                if (col.DataType == typeof(decimal) && (prop.PropertyType == typeof(double) || prop.PropertyType == typeof(double?)))
+                                {
+                                    prop.SetValue(instance, Convert.ToDouble(row[col.ColumnName]), null);
+                                }
+                                else if (prop.PropertyType == typeof(bool))
+                                {
+                                    prop.SetValue(instance, Convert.ToBoolean(row[col.ColumnName]), null);
+                                }
+                                else
+                                {
+                                    prop.SetValue(instance, row[col.ColumnName], null);
+                                }
+                                
                             }
                         }
                     }

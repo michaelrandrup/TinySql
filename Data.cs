@@ -14,7 +14,7 @@ namespace TinySql
     {
         #region Execute methods
 
-        public static ResultTable Execute(this SqlBuilder Builder, int TimeoutSeconds = 30, bool WithMetadata = true, ResultTable.DateHandlingEnum? DateHandling = null, bool UseCache = true, params object[] Format)
+        public static ResultTable Execute(this SqlBuilder Builder, int TimeoutSeconds = 30, bool WithMetadata = true, ResultTable.DateHandlingEnum? DateHandling = null, bool UseCache = true, string UseHierachyField = null, params object[] Format)
         {
             if (UseCache && CacheProvider.UseResultCache)
             {
@@ -23,7 +23,7 @@ namespace TinySql
                     return CacheProvider.ResultCache.Get(Builder);
                 }
             }
-            ResultTable result = new ResultTable(Builder, TimeoutSeconds, WithMetadata, DateHandling, Format);
+            ResultTable result = new ResultTable(Builder, TimeoutSeconds, WithMetadata, DateHandling, UseHierachyField, Format);
             if (CacheProvider.UseResultCache)
             {
                 CacheProvider.ResultCache.Add(Builder, result);
@@ -321,8 +321,9 @@ namespace TinySql
             };
             if (!field.IsOutput)
             {
-                object o = ParameterField.GetFieldValue(field.DataType, field.Value, field.Builder.Culture);
-                p.Value = o == null ? DBNull.Value : o;
+                // object o = ParameterField.GetFieldValue(field.DataType, field.Value, field.Builder.Culture);
+                // p.Value = o == null ? DBNull.Value : o;
+                p.Value = field.Value == null ? DBNull.Value : field.Value;
             }
             return p;
         }

@@ -666,6 +666,14 @@ namespace TinySql.UI
             set { _MaxLength = value; }
         }
 
+        private bool _IsRequired = false;
+
+        public bool IsRequired
+        {
+            get { return _IsRequired; }
+            set { _IsRequired = value; }
+        }
+
         private FieldTypes _FieldType = FieldTypes.Input;
 
         public virtual FieldTypes FieldType

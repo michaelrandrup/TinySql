@@ -8,10 +8,8 @@ namespace TinySql.MVC.Models
 		[PK]
 		public Decimal  ActivityID { get; set; }
 
-		[FK("Checkkode","CheckID","dbo","FK_ActivityStatusID_Checkkode_CheckID")]
 		public Decimal  ActivityStatusID { get; set; }
 
-		[FK("Checkkode","CheckID","dbo","FK_ActivityTypeID_Checkkode_CheckID")]
 		public Decimal  ActivityTypeID { get; set; }
 
 		[FK("Contact","ContactID","dbo","Contact_Activity_ContactID")]
@@ -33,10 +31,8 @@ namespace TinySql.MVC.Models
 
 		public DateTime  ModifiedOn { get; set; }
 
-		[FK("Organisation","OrganisationsID","dbo","FK_Activity_Organisation")]
 		public Decimal  OwningBusinessUnitID { get; set; }
 
-		[FK("SystemUser","SystemUserID","dbo","FK_Activity_SystemUser")]
 		public Decimal  OwningUserID { get; set; }
 
 		public String  Title { get; set; }

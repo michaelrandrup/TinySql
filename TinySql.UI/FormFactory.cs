@@ -176,7 +176,7 @@ namespace TinySql.UI
             field.TableName = TableName;
             field.NullText = "Enter " + col.Name;
             field.IsReadOnly = ForceReadOnly || col.IsReadOnly || col.IsPrimaryKey;
-
+            field.IsRequired = !col.Nullable;
             ResolveFieldType(col, field);
             section.Fields.Add(field);
         }

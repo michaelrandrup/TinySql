@@ -51,9 +51,9 @@ namespace TinySql
 
         #region Stored Procedures
 
-        public static StoredProcedure Parameter(this StoredProcedure proc, string Name, SqlDbType SqlDataType, object Value, Type DataType, int MaxLength = -1, int Scale = -1, int Precision = -1, bool IsOutput = false)
+        public static StoredProcedure Parameter(this StoredProcedure proc, string Name, SqlDbType SqlDataType, object Value, Type DataType, int MaxLength = -1, int Scale = -1, int Precision = -1, bool IsOutput = false, string TableName = null, string FieldName = null)
         {
-            proc.Parameters.Add(new ParameterField()
+            ParameterField p = new ParameterField()
             {
                 Builder = proc.Builder,
                 Name = Name,
@@ -65,13 +65,24 @@ namespace TinySql
                 DataType = DataType,
                 Value = Value,
                 IsOutput = IsOutput
-            });
+            };
+            if (!string.IsNullOrEmpty(TableName) && p.TryPopulateField(TableName,FieldName))
+            {
+                p.Name = Name;
+            }
+            proc.Parameters.Add(p);
             return proc;
         }
 
         public static SqlBuilder Builder(this StoredProcedure proc)
         {
             return proc.Builder.Builder();
+        }
+
+
+        public static StoredProcedure Parameter<T>(this StoredProcedure proc, string TableName, string Name, T Value, string FromField = null)
+        {
+            return Parameter(proc, Name, SqlDbType.VarChar, Value, typeof(T),TableName: TableName,FieldName: FromField);
         }
 
         public static StoredProcedure Parameter<T>(this StoredProcedure proc, string Name, SqlDbType SqlDataType, T Value, int MaxLength = -1, int Scale = -1, int Precision = -1)
@@ -121,7 +132,7 @@ namespace TinySql
                 Value = Value
 
 
-            });
+            }.PopulateField());
             return table;
         }
 
@@ -136,7 +147,7 @@ namespace TinySql
                 Scale = Scale,
                 SqlDataType = DataType,
                 FieldValue = Value
-            });
+            }.PopulateField());
             return table;
         }
 
@@ -154,6 +165,7 @@ namespace TinySql
                 Builder = table.Builder,
                 Table = table
             };
+            table.Output.PopulateField();
             return table.Output;
         }
 
@@ -1076,24 +1088,26 @@ namespace TinySql
             f.TryPopulateField();
             return f;
         }
-        internal static bool TryPopulateField(this Field f)
+        internal static bool TryPopulateField(this Field f, string UseTable = null, string UseField = null)
         {
-            if (f.Table == null)
+            if (f.Table == null && string.IsNullOrEmpty(UseTable))
             {
                 return false;
             }
-            MetadataDatabase mdb = f.Table.Builder.Metadata;
+
+            MetadataDatabase mdb = f.Table != null ? f.Table.Builder.Metadata : f.Builder.Metadata;
+            
             if (mdb == null)
             {
                 return false;
             }
-            MetadataTable mt = mdb.FindTable(f.Table.FullName);
+            MetadataTable mt = mdb.FindTable(string.IsNullOrEmpty(UseTable) ? f.Table.FullName : UseTable);
             if (mt == null)
             {
                 return false;
             }
             MetadataColumn mc = null;
-            if (!mt.Columns.TryGetValue(f.Name, out mc))
+            if (!mt.Columns.TryGetValue(string.IsNullOrEmpty(UseField) ? f.Name : UseField, out mc))
             {
                 return false;
             }

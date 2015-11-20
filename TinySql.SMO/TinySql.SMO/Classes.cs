@@ -43,6 +43,7 @@ namespace TinySql.Metadata
 
         public event MetadataUpdateDelegate MetadataUpdateEvent;
 
+        private List<string> TablesInProgress = new List<string>();
 
         public static SqlMetadataDatabase FromBuilder(SqlBuilder Builder, bool UseCache = true, string FileName = null)
         {
@@ -313,7 +314,7 @@ namespace TinySql.Metadata
                 Name = table.Name,
                 //Parent = mdb
             };
-
+            mt.TitleColumn = GetExtendedProperty("TitleColumn", table.ExtendedProperties);
             string[] values = GetExtendedProperty("DisplayName", table.ExtendedProperties, new char[] { '\r', '\n' });
             if (values != null)
             {
@@ -450,10 +451,11 @@ namespace TinySql.Metadata
                     if (!mdb.Tables.TryGetValue(mfk.ReferencedSchema + "." + mfk.ReferencedTable, out mtref))
                     {
                         bool self = false;
-                        if (mfk.ReferencedSchema == mt.Schema && mfk.ReferencedTable == mt.Name)
+                        if ((mfk.ReferencedSchema == mt.Schema && mfk.ReferencedTable == mt.Name) || TablesInProgress.Contains(mfk.ReferencedSchema + "." + mfk.ReferencedTable))
                         {
                             self = true;
                         }
+                        TablesInProgress.Add(mfk.ReferencedSchema + "." + mfk.ReferencedTable);
                         mtref = BuildMetadata(mdb, mfk.ReferencedTable, mfk.ReferencedSchema, PrimaryKeyIndexOnly, self);
                     }
                     foreach (ForeignKeyColumn cc in FK.Columns)

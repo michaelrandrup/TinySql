@@ -376,6 +376,7 @@
     <Content Include="Views\Home\EditForm.cshtml" />
     <Content Include="Views\TinySql\Details\Form.cshtml" />
     <Content Include="Views\TinySql\Lists\List.cshtml" />
+    <Content Include="Views\TinySql\Details\__FieldInput.cshtml" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />
