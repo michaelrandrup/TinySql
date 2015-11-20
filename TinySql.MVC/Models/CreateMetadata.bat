@@ -1,0 +1,1 @@
+C:\GitHub\TinySql\TinySql.Metadata.Sql.Console\bin\debug\tsm.exe create out:"C:\GitHub\TinySql\TinySql.MVC\Content\Metadata\TinyCrm.json" wait con:"Server=(localdb)\projectsV12;database=TinyCrm;Integrated Security=SSPI" class partial attrib namespace:"TinySql.MVC.Models" folder:"C:\GitHub\TinySql\TinySql.MVC\Models\Classes"

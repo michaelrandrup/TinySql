@@ -19,7 +19,7 @@ namespace UnitTests
                     .Column("AccountID", System.Data.SqlDbType.Decimal)
                     .Column("Name", System.Data.SqlDbType.VarChar, 50)
                 .UpdateTable()
-                .Set<string>("Name", System.Data.SqlDbType.VarChar, NewName)
+                .Set<string>("Name", NewName, System.Data.SqlDbType.VarChar)
                 .Where<decimal>("account", "AccountID", SqlOperators.Equal, 526)
 
                 .Builder;
@@ -41,7 +41,7 @@ namespace UnitTests
                     .Column("AccountID", System.Data.SqlDbType.Decimal)
                     .Column("Name", System.Data.SqlDbType.VarChar, 50)
                 .UpdateTable()
-                .Set<string>("Name", System.Data.SqlDbType.VarChar, NewTitle)
+                .Set<string>("Name", NewTitle, System.Data.SqlDbType.VarChar)
                 .InnerJoin("Systemuser").On("OwningUserID", SqlOperators.Equal, "SystemUserID")
                 .ToTable()
                 .Where<decimal>("Account", "AccountID", SqlOperators.Equal, 526)

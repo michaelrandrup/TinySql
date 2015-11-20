@@ -15,26 +15,38 @@ using TinySql.Metadata;
 namespace TinySql
 {
 
-    
+
 
     public class ResultTable : IList<RowData>
     {
         private List<RowData> _Results = new List<RowData>();
 
         public ResultTable() { }
-        public ResultTable(DataTable dt)
+        public ResultTable(DataTable dt, DateHandlingEnum? DateHandling = null)
         {
+            this.DateHandling = DateHandling;
             Initialize(dt);
         }
 
-        public ResultTable(SqlBuilder builder, int TimeoutSeconds = 60, bool WithMetadata = true, params object[] Format)
+        public ResultTable(SqlBuilder builder, int TimeoutSeconds = 60, bool WithMetadata = true, DateHandlingEnum? DateHandling = null, string UseHiearchyField = null, params object[] Format)
         {
             DataSet ds = builder.DataSet(builder.ConnectionString, TimeoutSeconds, Format);
-            this.Metadata = GetMetadataTable(builder.Metadata, builder.BaseTable().FullName);
+            Table bt = builder.BaseTable();
+            if (bt != null)
+            {
+                this.Metadata = GetMetadataTable(builder.Metadata, bt.FullName);
+            }
+
             this.WithMetadata = WithMetadata;
+            this.DateHandling = DateHandling;
+
             Initialize(ds.Tables[0]);
             ResultTable Current = this;
             int CurrentTable = 0;
+            if (builder.SubQueries.Count > 0 && this.Metadata == null)
+            {
+                throw new ArgumentException("The query contains sub-queries but no metadata has been specified. Use metadata to populate the sub-queries", "WithMetadata");
+            }
             foreach (var kv in builder.SubQueries)
             {
                 CurrentTable++;
@@ -57,9 +69,13 @@ namespace TinySql
                         _pk.Add(rd.Column(Column.Name));
                         Sort += (!string.IsNullOrEmpty(Sort) ? ", " : "") + Column.Name + " ASC";
                     }
+                    if (!string.IsNullOrEmpty(UseHiearchyField))
+                    {
+                        Sort = UseHiearchyField + " ASC";
+                    }
                     dv.Sort = Sort;
                     DataRowView[] filteredRows = dv.FindRows(_pk.ToArray());
-                    SubTable(rd, kv.Value, filteredRows, ds, CurrentTable, this.Metadata.Name,this.WithMetadata);
+                    SubTable(rd, kv.Value, filteredRows, ds, CurrentTable, this.Metadata.Name, this.WithMetadata, UseHiearchyField);
                 }
 
             }
@@ -67,18 +83,22 @@ namespace TinySql
 
         private MetadataTable GetMetadataTable(MetadataDatabase mdb, string TableName)
         {
-            if (mdb != null)
+            if (mdb != null && !string.IsNullOrEmpty(TableName))
             {
-                TableName = TableName.IndexOf('.') > 0 ? TableName : "dbo." + TableName;
-                return mdb[TableName];
+                return mdb.FindTable(TableName);
             }
             return null;
         }
-        private void SubTable(RowData Parent, SqlBuilder builder, DataRowView[] rows, DataSet ds, int CurrentTable, string key, bool WithMetadata)
+        private void SubTable(RowData Parent, SqlBuilder builder, DataRowView[] rows, DataSet ds, int CurrentTable, string key, bool WithMetadata, string UseHierachyField = null)
         {
             ResultTable rt = new ResultTable();
             rt.WithMetadata = WithMetadata;
-            rt.Metadata = GetMetadataTable(builder.Metadata, builder.BaseTable().FullName);
+            Table bt = builder.BaseTable();
+            if (bt != null)
+            {
+                rt.Metadata = GetMetadataTable(builder.Metadata, bt.FullName);
+            }
+
 
 
             string PropName = builder.BuilderName ?? rt.Metadata.Name + "List";
@@ -108,9 +128,13 @@ namespace TinySql
                         _pk.Add(rd.Column(Column.Name));
                         Sort += (!string.IsNullOrEmpty(Sort) ? ", " : "") + Column.Name + " ASC";
                     }
+                    if (!string.IsNullOrEmpty(UseHierachyField))
+                    {
+                        Sort = UseHierachyField + " ASC";
+                    }
                     dv.Sort = Sort;
                     DataRowView[] filteredRows = dv.FindRows(_pk.ToArray());
-                    SubTable(rd, kv.Value, filteredRows, ds, CurrentTable, rt.Metadata.Name,WithMetadata);
+                    SubTable(rd, kv.Value, filteredRows, ds, CurrentTable, rt.Metadata.Name, WithMetadata, UseHierachyField);
                 }
             }
 
@@ -237,25 +261,86 @@ namespace TinySql
         {
             return GetEnumerator();
         }
+
+        public enum DateHandlingEnum : int
+        {
+            None = 0,
+            ConvertToString = 1,
+            ConvertToDate = 2
+        }
+
+        public static DateHandlingEnum DefaultDateHandling = DateHandlingEnum.None;
+        private DateHandlingEnum? _DateHandling = null;
+
+        public DateHandlingEnum? DateHandling
+        {
+            get { return _DateHandling ?? DefaultDateHandling; }
+            set { _DateHandling = value; }
+        }
     }
 
     public class RowData : DynamicObject, ICloneable
     {
+        public static RowData Create(MetadataTable Table, bool CachePrimaryKey = false, object[] PK = null)
+        {
+            ConcurrentDictionary<string, object> values = new ConcurrentDictionary<string, object>();
+            foreach (MetadataColumn mc in Table.Columns.Values)
+            {
+                object v = null;
+                if (!mc.Nullable && mc.DataType.IsValueType)
+                {
+                    v = Activator.CreateInstance(mc.DataType);
+                }
+
+                if (!values.TryAdd(
+                    mc.Name,
+                    v
+                    ))
+                {
+                    throw new ArgumentException("The value from the column" + mc.Name + " could not be added to the row");
+                }
+            }
+            RowData row = new RowData(values, new ConcurrentDictionary<string, object>());
+            row.LoadMetadata(Table, CachePrimaryKey);
+            if (PK != null)
+            {
+                for (int i = 0; i < Table.PrimaryKey.Columns.Count; i++)
+                {
+                    row.OriginalValues.AddOrUpdate(Table.PrimaryKey.Columns[i].Name, PK[i], (k, v) => { return PK[i]; });
+                }
+            }
+            return row;
+        }
 
         public RowData(ResultTable Parent, DataRow dr, DataColumnCollection Columns)
         {
+            //_OriginalValues = new ConcurrentDictionary<string, object>(16, Columns.Count);
+            //_ChangedValues = new ConcurrentDictionary<string, object>();
             foreach (DataColumn Col in Columns)
             {
+                _Columns.Add(Col.ColumnName);
                 object o = dr.IsNull(Col) ? null : dr[Col];
-                if (!_OriginalValues.TryAdd(Col.ColumnName.Replace(" ", "_"), o))
+                string key = Col.ColumnName.Replace(" ", "_");
+                if (o != null && Parent.DateHandling != ResultTable.DateHandlingEnum.None && o.GetType() == typeof(DateTime))
                 {
-                    throw new InvalidOperationException(string.Format("Unable to set the RowData value {0} for Column {1}", o, Col.ColumnName));
+                    if (Parent.DateHandling == ResultTable.DateHandlingEnum.ConvertToString)
+                    {
+                        o = ((DateTime)o).ToString(SqlBuilder.DefaultCulture);
+                    }
+                    else if (Parent.DateHandling == ResultTable.DateHandlingEnum.ConvertToDate)
+                    {
+                        o = ((DateTime)o).ToString("G", SqlBuilder.DefaultCulture);
+                    }
+
                 }
+                _OriginalValues.TryAdd(key, o);
+                //_OriginalValues[key] = o;
+                //if (!_OriginalValues.TryAdd(key, o))
+                //{
+                //    throw new InvalidOperationException(string.Format("Unable to set the RowData value {0} for Column {1}", o, Col.ColumnName));
+                //}
             }
-            if (Parent.WithMetadata && Parent.Metadata != null)
-            {
-                LoadMetadata(Parent.Metadata);
-            }
+            LoadMetadata(Parent.Metadata, Parent.WithMetadata);
         }
 
 
@@ -264,10 +349,38 @@ namespace TinySql
 
         }
 
-        public void LoadMetadata(MetadataTable mt)
+        public bool LoadMetadata()
         {
-            _OriginalValues.AddOrUpdate("__PK",mt.PrimaryKey.Columns,(k,v) => {return mt.PrimaryKey.Columns;});
+            if (this.Metadata != null)
+            {
+                return false;
+            }
+            string table = this.Table;
+            if (string.IsNullOrEmpty(table))
+            {
+                return false;
+            }
+            MetadataTable mt = SqlBuilder.DefaultMetadata.FindTable(Table);
+            if (mt == null)
+            {
+                return false;
+            }
+            LoadMetadata(mt, true);
+            _Columns = new List<string>(_OriginalValues.Keys);
+            return true;
+
+        }
+
+
+        public void LoadMetadata(MetadataTable mt, bool CachePrimaryKey = false)
+        {
+            if (mt == null) { return; }
             _OriginalValues.AddOrUpdate("__TABLE", mt.Fullname, (k, v) => { return mt.Fullname; });
+            
+            if (CachePrimaryKey)
+            {
+                _OriginalValues.AddOrUpdate("__PK", mt.PrimaryKey.Columns, (k, v) => { return mt.PrimaryKey.Columns; });
+            }
         }
 
         public string Table
@@ -282,7 +395,7 @@ namespace TinySql
             }
         }
 
-       private List<MetadataColumn> InternalPK
+        private List<MetadataColumn> InternalPK
         {
             get
             {
@@ -321,7 +434,7 @@ namespace TinySql
             {
                 return null;
             }
-            
+
             WhereConditionGroup pk = new WhereConditionGroup();
             pk.Builder = builder;
             foreach (MetadataColumn c in columns)
@@ -335,21 +448,21 @@ namespace TinySql
             return pk;
         }
 
-        internal RowData(ConcurrentDictionary<string, dynamic> originalValues, ConcurrentDictionary<string, dynamic> changedValues)
+        internal RowData(ConcurrentDictionary<string, object> originalValues, ConcurrentDictionary<string, object> changedValues)
         {
             _OriginalValues = originalValues;
             _ChangedValues = changedValues;
         }
 
 
-        private ConcurrentDictionary<string, dynamic> _OriginalValues = new ConcurrentDictionary<string, dynamic>();
-        public ConcurrentDictionary<string, dynamic> OriginalValues
+        private ConcurrentDictionary<string, object> _OriginalValues = new ConcurrentDictionary<string, object>();
+        public ConcurrentDictionary<string, object> OriginalValues
         {
             get { return _OriginalValues; }
             set { _OriginalValues = value; }
         }
-        private ConcurrentDictionary<string, dynamic> _ChangedValues = new ConcurrentDictionary<string, dynamic>();
-        public ConcurrentDictionary<string, dynamic> ChangedValues
+        private ConcurrentDictionary<string, object> _ChangedValues = new ConcurrentDictionary<string, object>();
+        public ConcurrentDictionary<string, object> ChangedValues
         {
             get { return _ChangedValues; }
             set { _ChangedValues = value; }
@@ -388,13 +501,39 @@ namespace TinySql
             return (T)o;
         }
 
-        public string[] Columns
+        private List<string> _Columns = new List<string>();
+
+        public List<string> Columns
         {
-            get
-            {
-                return _OriginalValues.Keys.Where(x => !x.StartsWith("__")).ToArray();
-            }
+            get { return _Columns; }
+            set { _Columns = value; }
         }
+
+        
+        //public string[] Columns
+        
+        //    get
+        //    {
+        //        return Columns.ToArray();
+        //        List<string> keys = new List<string>();
+        //        //for (int i = 0; i < _OriginalValues.Keys.Count; i++)
+        //        //{
+        //        //    if (!_OriginalValues.Keys[i].StartsWith("__"))
+        //        //    {
+        //        //        keys.Add(_OriginalValues.Keys[i]);
+        //        //    }
+        //        //}
+        //        //return keys.ToArray();
+        //        foreach (string key in _OriginalValues.Keys)
+        //        {
+        //            if (!key.StartsWith("__"))
+        //            {
+        //                keys.Add(key);
+        //            }
+        //        }
+        //        return keys.ToArray();
+        //    }
+        //}
 
 
 
@@ -456,7 +595,7 @@ namespace TinySql
                 return false;
 
             }
-            if (!o.Equals(value))
+            if ((o == null && value != null) || !o.Equals(value))
             {
                 _ChangedValues.AddOrUpdate(Column, value, (key, existing) =>
                 {
@@ -474,6 +613,7 @@ namespace TinySql
             }
             return _OriginalValues.TryGetValue(Column, out value);
         }
+
 
 
         public object Clone()
@@ -532,6 +672,59 @@ namespace TinySql
         {
             // return (Field.Table.Schema != null ? Field.Table.Schema + "." : "") + Field.Table.Name + ".[" + Field.Name + "] " + Direction.ToString().ToUpper();
             return Field.Table.Alias + ".[" + Field.Name + "] " + Direction.ToString().ToUpper();
+        }
+    }
+
+
+    public class StoredProcedure
+    {
+        public SqlBuilder Builder { get; set; }
+
+        private List<ParameterField> _Parameters = new List<ParameterField>();
+        public string Name { get; set; }
+
+
+        public string Schema { get; set; }
+        public string ReferenceName
+        {
+            get
+            {
+                return string.IsNullOrEmpty(Schema) ? Name : Schema + "." + Name;
+            }
+        }
+
+        public List<ParameterField> Parameters
+        {
+            get { return _Parameters; }
+            set { _Parameters = value; }
+        }
+
+        public string ToSql()
+        {
+            SqlBuilder tb = this.Builder.Builder();
+            StringBuilder sql = new StringBuilder();
+            string set = "";
+            string call = "";
+            foreach (ParameterField field in this.Parameters)
+            {
+                tb.AddDeclaration(field.ParameterName, field.DeclareParameter());
+                set += field.SetParameter() + "\r\n";
+                call += (!string.IsNullOrEmpty(call) ? ", " : "") + field.ParameterName + (field.IsOutput ? " OUT" : "");
+            }
+
+            sql.AppendLine("-- Stored procedure");
+            sql.AppendFormat("{0}\r\n", set);
+            sql.AppendFormat("EXEC {0} {1}\r\n", this.ReferenceName, call);
+            string output = "";
+            foreach (ParameterField field in this.Parameters.Where(x => x.IsOutput == true))
+            {
+                output += string.IsNullOrEmpty(output) ? field.ParameterName : ", " + field.ParameterName;
+            }
+            if (!string.IsNullOrEmpty(output))
+            {
+                sql.AppendFormat("SELECT  {0}\r\n", output);
+            }
+            return sql.ToString();
         }
     }
 
@@ -659,7 +852,15 @@ namespace TinySql
 
         public string ToSql()
         {
-            return string.Format("{0} {1} ON {2}", JoinClause(JoinType), ToTable.ReferenceName, Conditions.ToSql());
+            if (JoinType != JoinTypes.Cross)
+            {
+                return string.Format("{0} {1} ON {2}", JoinClause(JoinType), ToTable.ReferenceName, Conditions.ToSql());
+            }
+            else
+            {
+                return string.Format("{0} {1}", JoinClause(JoinType), ToTable.ReferenceName);
+            }
+
         }
 
     }
@@ -849,10 +1050,10 @@ namespace TinySql
         {
             ParameterTable = new Table();
         }
-        private new System.Data.SqlDbType SqlDataType;
-        private new int MaxLength = -1;
-        private new int Scale = -1;
-        private new bool IsOutput = false;
+        //private new System.Data.SqlDbType SqlDataType;
+        //private new int MaxLength = -1;
+        //private new int Scale = -1;
+        //private new bool IsOutput = false;
         public Table ParameterTable;
         public override string DeclareParameter()
         {
@@ -882,21 +1083,33 @@ namespace TinySql
 
     public class ParameterField : ValueField
     {
-        public string ParameterName;
-        public bool IsOutput = false;
+        public string ParameterName { get; set; }
+        private bool _IsOutput = false;
+
+        public bool IsOutput
+        {
+            get { return _IsOutput; }
+            set { _IsOutput = value; }
+        }
 
         public virtual string DeclareParameter()
         {
             string sql = string.Format("DECLARE {0} {1}", ParameterName, GetSqlDataType());
-            if (IsOutput)
-            {
-                sql += " OUT";
-            }
+            //if (IsOutput)
+            //{
+            //    sql += " OUT";
+            //}
             return sql;
         }
 
+
+
         public virtual string SetParameter()
         {
+            if (this.Value == null || this.Value == DBNull.Value)
+            {
+                return string.Format("SET  {0} = NULL", ParameterName);
+            }
             string q = GetQuotable(this.DataType);
             string qs = q == "'" ? "N'" : "";
             return string.Format("SET {0} = {2}{1}{3}", ParameterName, base.ToSql(), qs, q);
@@ -929,7 +1142,16 @@ namespace TinySql
 
         public override string ToSql()
         {
-            string sql = GetFieldValue(DataType == null ? Value.GetType() : DataType, Value).ToString();
+            string sql = null;
+            object o = GetFieldValue(DataType == null ? Value.GetType() : DataType, Value, this.Builder.Culture);
+            if (o == null)
+            {
+                sql = "NULL";
+            }
+            else
+            {
+                sql = Convert.ToString(o);
+            }
             if (string.IsNullOrEmpty(Alias))
             {
                 return sql;
@@ -1141,7 +1363,7 @@ namespace TinySql
             set;
         }
 
-        public object Value
+        public virtual object Value
         {
             get;
             set;
@@ -1177,40 +1399,75 @@ namespace TinySql
             {
                 string table = this.Table.Alias;
                 return table + ".[" + (this.Alias ?? this.Name) + "]";
-                //if (table.StartsWith("["))
-                //{
-                //    return table + ".[" + (this.Alias ?? this.Name) + "]";
-                //}
-                //else
-                //{
-                //    return "[" + table + "].[" + (this.Alias ?? this.Name) + "]";
-                //}
-
             }
+        }
+
+        public virtual string OutputName
+        {
+            get
+            {
+                return string.IsNullOrEmpty(Alias) ? Alias : Name;
+            }
+        }
+
+
+        private bool IsDateData(SqlDbType SqlDataType)
+        {
+            return SqlDataType == SqlDbType.DateTime || SqlDataType == SqlDbType.DateTime2 || SqlDataType == SqlDbType.DateTimeOffset;
         }
 
         public string GetSqlDataType()
         {
             string sql = SqlDataType.ToString();
-            if (MaxLength != -1)
+            //if (MaxLength != -1 && (SqlDataType != SqlDbType.DateTime || SqlDataType != SqlDbType.DateTime2 || SqlDataType != SqlDbType.DateTimeOffset))
+            //{
+            //    sql += "(" + (MaxLength == 0 ? "max" : MaxLength.ToString()) + (Scale != -1 ? "," + Scale : "") + ")";
+            //}
+            //else
+            //{
+            if (SqlDataType == SqlDbType.NVarChar || SqlDataType == SqlDbType.VarChar || SqlDataType == SqlDbType.Text || SqlDataType == SqlDbType.NText)
             {
-                sql += "(" + (MaxLength == 0 ? "max" : MaxLength.ToString()) + (Scale != -1 ? "," + Scale : "") + ")";
-            }
-            else
-            {
-                if (SqlDataType == SqlDbType.NVarChar || SqlDataType == SqlDbType.VarChar || SqlDataType == SqlDbType.Text || SqlDataType == SqlDbType.NText)
+                if (MaxLength <= 0)
                 {
                     sql += "(MAX)";
                 }
-                else if (SqlDataType == SqlDbType.VarBinary)
+                else
                 {
-                    if (Value != null)
-                    {
-
-                        sql += "(" + ((byte[])Value).Length.ToString() + ")";
-                    }
+                    sql += string.Format("({0})", MaxLength);
                 }
             }
+            else if (SqlDataType == SqlDbType.Char || SqlDataType == SqlDbType.NChar)
+            {
+                if (MaxLength > 0)
+                {
+                    sql += string.Format("({0})", MaxLength);
+                }
+            }
+
+
+            //else if (SqlDataType == SqlDbType.Xml)
+            //{
+            //    if (Value.GetType() == typeof(XmlDocument))
+            //    {
+            //        sql += string.Format("({0})", MaxLength);
+            //    }
+            //}
+            else if (SqlDataType == SqlDbType.VarBinary)
+            {
+                if (Value != null)
+                {
+
+                    sql += "(" + ((byte[])Value).Length.ToString() + ")";
+                }
+            }
+            else
+            {
+                if (Precision > 0 && !IsDateData(SqlDataType))
+                {
+                    sql += string.Format("({0}{1})", Precision, Scale >= 0 ? ", " + Scale.ToString() : "");
+                }
+            }
+            //}
             return sql;
         }
 
@@ -1227,7 +1484,7 @@ namespace TinySql
         }
 
 
-        protected static object GetFieldValue(Type DataType, object FieldValue, CultureInfo Culture = null)
+        public static object GetFieldValue(Type DataType, object FieldValue, CultureInfo Culture = null)
         {
             if (Culture == null)
             {
@@ -1236,7 +1493,8 @@ namespace TinySql
             string fv = "";
             if ((DataType == typeof(Nullable<>) || DataType == typeof(string)) && FieldValue == null)
             {
-                return "";
+                // return "";
+                return null;
             }
             if (DataType == typeof(byte[]))
             {
@@ -1264,9 +1522,13 @@ namespace TinySql
                     return ((XmlDocument)FieldValue).OuterXml.Replace("'", "''");
                 }
             }
-            if (DataType == typeof(DateTime) || DataType == typeof(DateTimeOffset) || DataType == typeof(DateTime?) || DataType == typeof(DateTimeOffset?))
+            if (DataType == typeof(DateTime) || DataType == typeof(DateTime?)) 
             {
-                return string.Format("{0:s}", FieldValue);
+                return string.Format("{0:s}", DateTime.Parse(FieldValue.ToString()));
+            }
+            if (DataType == typeof(DateTimeOffset)  || DataType == typeof(DateTimeOffset?))
+            {
+                return string.Format("{0:s}", DateTimeOffset.Parse(FieldValue.ToString()));
             }
             if (DataType == typeof(IList) || DataType == typeof(List<>) || DataType.Name.Equals("List`1"))
             {

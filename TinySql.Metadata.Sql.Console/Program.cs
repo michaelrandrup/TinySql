@@ -41,6 +41,36 @@ namespace TinySql.Metadata.Sql.CommandLine
             {
                 Environment.Exit(CreateMetadata(true));
             }
+            else if (Command == Commands.ExportProperties)
+            {
+                Environment.Exit(ExportProperties());
+            }
+        }
+
+        private static int ExportProperties()
+        {
+            ConsoleColor c = Console.ForegroundColor;
+            try
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("Connecting to " + ConnectionString);
+                SqlMetadataDatabase db = SqlMetadataDatabase.FromConnection(ConnectionString, true, File.Exists(OutputFile) ? OutputFile : null);
+                db.MetadataUpdateEvent += db_MetadataUpdateEvent;
+                DatabaseExtendedProperties props = db.ExportExtendedProperties();
+                SerializationExtensions.ToFile<DatabaseExtendedProperties>(props, OutputFile, true);
+                Console.WriteLine("Properties saved to {0}", OutputFile);
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(ex.Message);
+                return 1;
+            }
+            finally
+            {
+                Console.ForegroundColor = c;
+            }
+            return 0;
         }
 
         private static int CreateMetadata(bool Update = false)
@@ -68,6 +98,8 @@ namespace TinySql.Metadata.Sql.CommandLine
                 MetadataDatabase mdb = db.BuildMetadata(true, Tables,Update);
                 Console.WriteLine("Done. Metadata contains {0} tables", mdb.Tables.Count);
                 Console.WriteLine("Saving metadata in the file {0}", OutputFile);
+                ClassCreationOptions.MetadataEvent = new MetadataUpdateDelegate(db_MetadataUpdateEvent);
+                ClassGenerator.CreateClasses(mdb);
                 mdb.ToFile(OutputFile);
                 return 0;
             }
@@ -99,12 +131,21 @@ namespace TinySql.Metadata.Sql.CommandLine
 
         private static void WriteHelp()
         {
-            Console.WriteLine("Command line parameters:");
-            Console.WriteLine("(required) [update|create] Will either create or update metadata. if 'update' is specified, you must also specify the output parameter to point to an existing metadata file to be updated");
+            Console.WriteLine("Command line parameters for creating and updating metadata and classes:");
+            Console.WriteLine("(required) [update|create|Exportprop|Importprop] Will either create or update metadata. if 'update' is specified, you must also specify the output parameter to point to an existing metadata file to be updated");
             Console.WriteLine("(required) [connection|con]:\"<sql connection string>\": The connection string to use");
             Console.WriteLine("(optional) [output|out]:\"<path to output file>\": Path to the file where the metadata is json serialized. Specify an existing file to update the file with modified metadata from the database");
             Console.WriteLine("(optional) [tables]:<table1,table2...table n>: Comma separated list of tables to generate metadata for");
             Console.WriteLine("(optional) [wait] will prompt the user to press a key before closing the Console");
+            Console.WriteLine("----------");
+            Console.WriteLine("(optional) [class] Will generate one class file per table");
+            Console.WriteLine("(optional) [partial] Will generate classes with the 'partial' keyword");
+            Console.WriteLine("(optional) [using]:<namespace1,namespace2...namespace n> the using statements to create at the beginning of each class file");
+            Console.WriteLine("(optional) [namespace|ns]:<namespace> the name space to create the classes under");
+            Console.WriteLine("(optional) [fields] will generate each column as a public field. If not specified the columns will be created as public properties");
+            Console.WriteLine("(optional) [attributes|attrib] will decorate the properties/fields with Foreign key/Primary key attributes");
+            Console.WriteLine("(optional) [folder]:\"<Path to the output folder for classes>\"");
+
 
         }
 
@@ -119,10 +160,12 @@ namespace TinySql.Metadata.Sql.CommandLine
         {
             Unknown,
             CreateMetadata,
-            UpdateMetadata
+            UpdateMetadata,
+            ExportProperties,
+            ImportProperties
         }
         private static Commands Command = Commands.Unknown;
-
+        private static bool CreateClasses = false;
         private static string Clean(string s)
         {
             return s.TrimStart('"').TrimEnd('"');
@@ -162,6 +205,18 @@ namespace TinySql.Metadata.Sql.CommandLine
                     {
                         Tables = Clean(cmd[1]).Split(',');
                     }
+                    else if (cmd[0].Equals("using", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ClassCreationOptions.Usings = Clean(cmd[1]).Split(',').ToList();
+                    }
+                    else if (cmd[0].Equals("namespace", StringComparison.OrdinalIgnoreCase) || cmd[0].Equals("ns", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ClassCreationOptions.Namespace = Clean(cmd[1]);
+                    }
+                    else if (cmd[0].Equals("folder", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ClassCreationOptions.OutputPath = Clean(cmd[1]);
+                    }
                 }
                 else
                 {
@@ -173,9 +228,33 @@ namespace TinySql.Metadata.Sql.CommandLine
                     {
                         Command = Commands.UpdateMetadata;
                     }
+                    else if (cmd[0].Equals("exportprop", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Command = Commands.ExportProperties;
+                    }
+                    else if (cmd[0].Equals("importprop", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Command = Commands.ImportProperties;
+                    }
                     else if (cmd[0].Equals("wait", StringComparison.OrdinalIgnoreCase))
                     {
                         PromptUser = true;
+                    }
+                    else if (cmd[0].Equals("class", StringComparison.OrdinalIgnoreCase))
+                    {
+                        CreateClasses = true;
+                    }
+                    else if (cmd[0].Equals("partial", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ClassCreationOptions.PartialClass = true;
+                    }
+                    else if (cmd[0].Equals("fields", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ClassCreationOptions.ColumnAsProperty = false;
+                    }
+                    else if (cmd[0].Equals("attributes", StringComparison.OrdinalIgnoreCase) || cmd[0].Equals("attrib", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ClassCreationOptions.DecorateColumnAttributes = true;
                     }
                 }
             }

@@ -1,0 +1,40 @@
+﻿@using TinySql.UI
+@model TinySql.UI.Form
+@using System.Web.Mvc
+
+@{
+    ViewBag.Title = Model.Title;
+
+}
+
+<div id="dialog" class="modal fade" role="dialog" aria-labelledby="title@(Model.ID)" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span></button>            
+                <span id="title@(Model.ID)" class="model-title lead">@Model.Title</span>
+                <span class="pull-right" style="padding-right:12px;">
+                    <button type="button" class="btn btn-success btn-xs btnsave">Save</button>
+                    <button type="button" class="btn btn-danger btn-xs">Delete</button>
+                </span>
+            </div>
+            <div class="modal-body">
+                    <form id="@Model.ID" data-table="@Model.Metadata.Fullname" class="@Model.CssFormLayout">
+                        @foreach (FormSection Section in Model.Sections)
+                        {
+                            @Html.Partial(Model.CssSectionView, Model.GetSectionModel(Section))
+                            foreach (FormField Hidden in Section.Fields.Where(x => x.IsHidden))
+                            {
+                                FieldModel fieldModel = Section.GetFieldModel(Hidden, Model.Metadata, Model.Data);    
+                                @Html.TinySqlInput(fieldModel)
+                            }
+                        }
+                    </form>
+            </div>
+            @*<div class="modal-footer">
+            </div>*@
+        </div>
+    </div>
+
+</div>
+

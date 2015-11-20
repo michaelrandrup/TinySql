@@ -5,6 +5,7 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Reflection;
 using System.Transactions;
+using TinySql.Cache;
 using TinySql.Metadata;
 
 namespace TinySql
@@ -13,23 +14,172 @@ namespace TinySql
     {
         #region Execute methods
 
-        public static ResultTable Execute(this SqlBuilder Builder, string ConnectionString, int TimeoutSeconds = 30, params object[] Format)
+        public static ResultTable Execute(this SqlBuilder Builder, int TimeoutSeconds = 30, bool WithMetadata = true, ResultTable.DateHandlingEnum? DateHandling = null, bool UseCache = true, string UseHierachyField = null, params object[] Format)
         {
-            MetadataTable mt = null;
-            if (Builder.Metadata != null && Builder.Tables.Count > 0)
+            if (UseCache && CacheProvider.UseResultCache)
             {
-                Table t = Builder.Tables.First();
-                mt = Builder.Metadata[!string.IsNullOrEmpty(t.Schema) ? t.FullName : "dbo." + t.Name];
+                if (CacheProvider.ResultCache.IsCached(Builder))
+                {
+                    return CacheProvider.ResultCache.Get(Builder);
+                }
             }
-            return new ResultTable(mt, DataTable(Builder, ConnectionString, TimeoutSeconds, Format));
+            ResultTable result = new ResultTable(Builder, TimeoutSeconds, WithMetadata, DateHandling, UseHierachyField, Format);
+            if (CacheProvider.UseResultCache)
+            {
+                CacheProvider.ResultCache.Add(Builder, result);
+            }
+            return result;
+
         }
 
-        public static ResultTable Execute(this SqlBuilder Builder, int TimeoutSeconds = 30, bool WithMetadata = true, params object[] Format)
+
+
+        public static ResultTable Execute(this List<SqlBuilder> Builders, int TimeoutSeconds = 30)
         {
-            return new ResultTable(Builder,TimeoutSeconds,WithMetadata,Format);
+            return Execute(Builders.ToArray(), TimeoutSeconds);
         }
 
-        
+        private static ResultTable ExecuteRelatedInternal(SqlBuilder builder, Dictionary<string, RowData> results)
+        {
+            if (results.Count > 0)
+            {
+                MetadataTable mt = builder.BaseTable().WithMetadata().Model;
+                foreach (string key in results.Keys)
+                {
+                    foreach (MetadataForeignKey fk in mt.ForeignKeys.Values.Where(x => (x.ReferencedSchema + "." + x.ReferencedTable).Equals(key, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        RowData row = results[key];
+                        foreach (MetadataColumnReference mcr in fk.ColumnReferences)
+                        {
+                            if (row.Columns.Contains(mcr.Column.Name))
+                            {
+                                Field f = builder.BaseTable().FindField(mcr.Column.Name);
+                                if (f != null)
+                                {
+                                    f.Value = row.Column(mcr.Column.Name);
+                                }
+                                else
+                                {
+                                    (builder.BaseTable() as InsertIntoTable).Value(mcr.Column.Name, row.Column(mcr.Column.Name), SqlDbType.VarChar);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            DataTable dt = new DataTable();
+            ResultTable table = new ResultTable();
+            using (SqlConnection context = new SqlConnection(builder.ConnectionString))
+            {
+                context.Open();
+                SqlCommand cmd = new SqlCommand(builder.ToSql(), context);
+                SqlDataAdapter adapter = new SqlDataAdapter(cmd);
+                adapter.AcceptChangesDuringFill = false;
+                adapter.Fill(dt);
+                context.Close();
+            }
+
+            if (builder.SubQueries.Count > 0)
+            {
+                Dictionary<string, RowData> subresults = new System.Collections.Generic.Dictionary<string, RowData>(results);
+                if (dt.Rows.Count > 0)
+                {
+                    MetadataTable mt = builder.BaseTable().WithMetadata().Model;
+                    if (!subresults.ContainsKey(mt.Fullname))
+                    {
+                        ResultTable rt = new ResultTable(dt, ResultTable.DateHandlingEnum.None);
+                        RowData row = rt.First();
+                        table.Add(row);
+                        subresults.Add(mt.Fullname, row);
+                    }
+                }
+                foreach (SqlBuilder Builder in builder.SubQueries.Values)
+                {
+                    ResultTable sub = ExecuteRelatedInternal(Builder, subresults);
+                    foreach (RowData row in sub)
+                    {
+                        table.Add(row);
+                    }
+                }
+            }
+            return table;
+
+
+        }
+
+        public static ResultTable Execute(this SqlBuilder[] Builders, int TimeoutSeconds = 30)
+        {
+            ResultTable table = new ResultTable();
+            using (TransactionScope trans = new TransactionScope(TransactionScopeOption.RequiresNew, new TransactionOptions()
+            {
+                IsolationLevel = System.Transactions.IsolationLevel.ReadCommitted,
+                Timeout = TimeSpan.FromSeconds(TimeoutSeconds)
+            }))
+            {
+                try
+                {
+                    foreach (SqlBuilder builder in Builders)
+                    {
+                        DataTable dt = new DataTable();
+                        using (SqlConnection context = new SqlConnection(builder.ConnectionString))
+                        {
+                            context.Open();
+                            SqlCommand cmd = new SqlCommand(builder.ToSql(), context);
+                            SqlDataAdapter adapter = new SqlDataAdapter(cmd);
+                            adapter.AcceptChangesDuringFill = false;
+                            adapter.Fill(dt);
+                            context.Close();
+                        }
+
+                        if (builder.SubQueries.Count > 0)
+                        {
+                            Dictionary<string, RowData> results = new Dictionary<string, RowData>();
+                            if (dt.Rows.Count > 0)
+                            {
+                                MetadataTable mt = builder.BaseTable().WithMetadata().Model;
+                                if (!results.ContainsKey(mt.Fullname))
+                                {
+                                    ResultTable rt = new ResultTable(dt, ResultTable.DateHandlingEnum.None);
+                                    RowData row = rt.First();
+                                    results.Add(mt.Fullname, row);
+                                    table.Add(row);
+                                }
+                            }
+                            foreach (SqlBuilder Builder in builder.SubQueries.Values)
+                            {
+                                ResultTable sub = ExecuteRelatedInternal(Builder, results);
+                                foreach (RowData row in sub)
+                                {
+                                    table.Add(row);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (TransactionException exTrans)
+                {
+                    trans.Dispose();
+                    throw exTrans;
+                }
+                catch (SqlException exSql)
+                {
+                    trans.Dispose();
+                    throw exSql;
+                }
+                catch (ApplicationException exApplication)
+                {
+                    trans.Dispose();
+                    throw exApplication;
+                }
+                trans.Complete();
+            }
+
+            return table;
+
+
+        }
+
+
 
         public static DataTable DataTable(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, params object[] Format)
         {
@@ -64,7 +214,25 @@ namespace TinySql
                 }
                 trans.Complete();
             }
+            if (Builder.StatementType == SqlBuilder.StatementTypes.Procedure)
+            {
+                FillBuilderFromProcedureOutput(Builder, dt);
+            }
             return dt;
+        }
+
+        private static void FillBuilderFromProcedureOutput(SqlBuilder builder, DataTable dt)
+        {
+            int count = builder.Procedure.Parameters.Count(x => x.IsOutput);
+            if (count > 0 && dt.Rows.Count == 1 && dt.Columns.Count == count)
+            {
+                int idx = 0;
+                foreach (ParameterField field in builder.Procedure.Parameters.Where(x => x.IsOutput == true))
+                {
+                    field.Value = dt.Rows[0][idx];
+                    idx++;
+                }
+            }
         }
 
         public static DataSet DataSet(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 60, params object[] Format)
@@ -88,6 +256,7 @@ namespace TinySql
                         context.Open();
                         SqlCommand cmd = new SqlCommand(Builder.ToSql(Format), context);
                         SqlDataAdapter adapter = new SqlDataAdapter(cmd);
+                        adapter.AcceptChangesDuringFill = false;
                         adapter.Fill(ds);
                         context.Close();
                     }
@@ -99,6 +268,10 @@ namespace TinySql
                 }
                 trans.Complete();
             }
+            if (Builder.StatementType == SqlBuilder.StatementTypes.Procedure)
+            {
+                FillBuilderFromProcedureOutput(Builder, ds.Tables[0]);
+            }
             return ds;
         }
 
@@ -107,13 +280,60 @@ namespace TinySql
             using (SqlConnection context = new SqlConnection(ConnectionString))
             {
                 context.Open();
-                SqlCommand cmd = new SqlCommand(Builder.ToSql(Builder.Format), context);
+                SqlCommand cmd = null;
+                if (Builder.StatementType != SqlBuilder.StatementTypes.Procedure)
+                {
+                    cmd = new SqlCommand(Builder.ToSql(Builder.Format), context);
+                }
+                else
+                {
+                    cmd = new SqlCommand(Builder.Procedure.Name, context);
+                    cmd.CommandType = CommandType.StoredProcedure;
+                    foreach (ParameterField par in Builder.Procedure.Parameters)
+                    {
+                        cmd.Parameters.Add(ToSqlParameter(par));
+                    }
+                }
                 cmd.CommandTimeout = Timeout;
                 int i = cmd.ExecuteNonQuery();
                 context.Close();
+                if (Builder.StatementType == SqlBuilder.StatementTypes.Procedure && Builder.Procedure.Parameters.Count(x => x.IsOutput) > 0)
+                {
+                    foreach (ParameterField par in Builder.Procedure.Parameters.Where(x => x.IsOutput))
+                    {
+                        par.Value = cmd.Parameters[par.ParameterName].Value;
+                    }
+                }
                 return i;
             }
         }
+
+        private static SqlParameter ToSqlParameter(ParameterField field)
+        {
+            SqlParameter p = new SqlParameter()
+            {
+                ParameterName = field.ParameterName,
+                SqlDbType = field.SqlDataType,
+                Precision = field.Precision >= 0 ? (byte)field.Precision : (byte)0,
+                Scale = field.Scale >= 0 ? (byte)field.Scale : (byte)0,
+                Size = field.MaxLength >= 0 ? field.MaxLength : 0,
+                Direction = field.IsOutput ? ParameterDirection.Output : ParameterDirection.Input
+            };
+            if (!field.IsOutput)
+            {
+                // object o = ParameterField.GetFieldValue(field.DataType, field.Value, field.Builder.Culture);
+                // p.Value = o == null ? DBNull.Value : o;
+                p.Value = field.Value == null ? DBNull.Value : field.Value;
+            }
+            return p;
+        }
+
+
+        public static int ExecuteNonQuery(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30)
+        {
+            return new SqlBuilder[] { Builder }.ExecuteNonQuery(ConnectionString, TimeoutSeconds);
+        }
+
         public static int ExecuteNonQuery(this SqlBuilder[] Builders, string ConnectionString = null, int TimeoutSeconds = 30)
         {
             ConnectionString = ConnectionString ?? SqlBuilder.DefaultConnection;
@@ -197,7 +417,7 @@ namespace TinySql
             return (S)list;
         }
 
-        
+
 
 
 
@@ -232,7 +452,7 @@ namespace TinySql
             return builder.Dictionary<TKey, T>(TKeyPropertyName, ConnectionString, TimeoutSeconds, AllowPrivateProperties, EnforceTypesafety, Format);
         }
 
-        public static S Dictionary<TKey, T, S>(this SqlBuilder Builder, string TKeyPropertyName, DataTable dataTable, bool AllowPrivateProperties, bool EnforceTypesafety) where S : IDictionary<TKey, T>
+        public static S Dictionary<TKey, T, S>(this SqlBuilder Builder, string TKeyPropertyName, DataTable dataTable, bool AllowPrivateProperties, bool EnforceTypesafety, Func<S, TKey, T, bool> InsertUpdateDelegate = null) where S : IDictionary<TKey, T>
         {
             IDictionary<TKey, T> dict = Activator.CreateInstance<S>() as IDictionary<TKey, T>;
             foreach (DataRow row in dataTable.Rows)
@@ -241,12 +461,33 @@ namespace TinySql
                 PropertyInfo prop = instance.GetType().GetProperty(TKeyPropertyName);
                 if (prop != null)
                 {
-                    dict.Add((TKey)prop.GetValue(instance, null), instance);
+                    if (InsertUpdateDelegate != null)
+                    {
+                        if (!InsertUpdateDelegate((S)dict, (TKey)prop.GetValue(instance, null), instance))
+                        {
+                            throw new InvalidOperationException("The InsertUpdate delegate failed to insert or update the dictionary " + typeof(S).Name);
+                        }
+                    }
+                    else
+                    {
+                        dict.Add((TKey)prop.GetValue(instance, null), instance);
+                    }
                 }
                 else
                 {
                     FieldInfo field = instance.GetType().GetField(TKeyPropertyName);
-                    dict.Add((TKey)field.GetValue(instance), instance);
+                    if (InsertUpdateDelegate != null)
+                    {
+                        if (!InsertUpdateDelegate((S)dict, (TKey)field.GetValue(instance), instance))
+                        {
+                            throw new InvalidOperationException("The InsertUpdate delegate failed to insert or update the dictionary " + typeof(S).Name);
+                        }
+                    }
+                    else
+                    {
+                        dict.Add((TKey)field.GetValue(instance), instance);
+                    }
+
                 }
             }
             return (S)dict;

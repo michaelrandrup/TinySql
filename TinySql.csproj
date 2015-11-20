@@ -56,7 +56,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Cache.cs" />
     <Compile Include="Data.cs" />
+    <Compile Include="DataAttributes.cs" />
     <Compile Include="MetadataClasses.cs" />
     <Compile Include="MetadataExtensions.cs" />
     <Compile Include="ResultExtensions.cs" />

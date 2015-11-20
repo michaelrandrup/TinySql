@@ -19,6 +19,22 @@ namespace TinySql
                 Distinct = Distinct
             };
         }
+        public static StoredProcedure StoredProcedure(string Name, string Schema = null)
+        {
+
+            SqlBuilder builder = new SqlBuilder()
+            {
+                StatementType = StatementTypes.Procedure
+            };
+            builder.Procedure = new StoredProcedure()
+            {
+                Builder = builder,
+                Name = Name,
+                Schema = Schema
+            };
+            return builder.Procedure;
+
+        }
         public static SqlBuilder Insert()
         {
             return new SqlBuilder()
@@ -50,9 +66,9 @@ namespace TinySql
                 BranchStatement = BranchStatements.If,
                 StatementType = StatementTypes.If
             };
-
-
         }
+
+        public StoredProcedure Procedure { get; set; }
 
         private static string _DefaultConnection = null;
 
@@ -75,7 +91,11 @@ namespace TinySql
         private MetadataDatabase _Metadata = null;
         public MetadataDatabase Metadata
         {
-            get { return _Metadata ?? DefaultMetadata; }
+            get
+            {
+                MetadataDatabase mdb = _Metadata ?? this.Builder()._Metadata;
+                return mdb ?? DefaultMetadata;
+            }
             set { _Metadata = value; }
         }
 
@@ -92,7 +112,11 @@ namespace TinySql
         }
         public SqlBuilder AddSubQuery(string Name, SqlBuilder Builder)
         {
-            Builder.ParentBuilder = this;
+            if (Builder.StatementType != StatementTypes.Insert && Builder.StatementType != StatementTypes.Update)
+            {
+                // Only set the parent builder for statements that share parameter declarations
+                Builder.ParentBuilder = this;
+            }
             return _SubQueries.AddOrUpdate(Name, Builder, (k, v) => { return Builder; });
 
         }
@@ -118,7 +142,7 @@ namespace TinySql
             }
         }
 
-        private bool AddDeclaration(string DeclarationName, string Body)
+        internal bool AddDeclaration(string DeclarationName, string Body)
         {
             return Declarations.TryAdd(DeclarationName, Body);
         }
@@ -204,6 +228,9 @@ namespace TinySql
                 case StatementTypes.Delete:
                     sql = DeleteSql();
                     break;
+                case StatementTypes.Procedure:
+                    sql = this.Procedure.ToSql();
+                    break;
                 default:
                     break;
             }
@@ -252,7 +279,7 @@ namespace TinySql
                 set += field.SetParameter() + "\r\n";
             }
 
-            if (BaseTable.Output != null)
+            if (BaseTable.Output != null && BaseTable.Output.ParameterTable.FieldList.Count > 0)
             {
                 tb.AddDeclaration(BaseTable.Output.ParameterName, BaseTable.Output.DeclareParameter());
                 outputSelect += BaseTable.Output.SetParameter() + "\r\n";
@@ -261,7 +288,7 @@ namespace TinySql
 
             sb.AppendLine(set);
             sb.AppendFormat(" INSERT  INTO {0}({1})\r\n", BaseTable.Alias, BaseTable.ToSql());
-            if (BaseTable.Output != null)
+            if (BaseTable.Output != null && BaseTable.Output.ParameterTable.FieldList.Count > 0)
             {
                 sb.AppendFormat("OUTPUT  {0}\r\n", BaseTable.Output.ToSql());
             }
@@ -273,9 +300,43 @@ namespace TinySql
             return sb.ToString();
 
         }
+
+        public void CleanSelectList(bool RemoveDublicateFields = false)
+        {
+            List<string> clean = new List<string>();
+            int idx = 0;
+            foreach (Field f in Tables.SelectMany(x => x.FieldList))
+            {
+                string s = f.Alias != null ? f.Alias : f.Name;
+                if (!clean.Contains(s))
+                {
+                    clean.Add(s);
+                }
+                else
+                {
+                    if (RemoveDublicateFields)
+                    {
+                        f.Table.FieldList.Remove(f);
+                    }
+                    else
+                    {
+                        f.Alias = f.Table.Name + "_" + f.Name;
+                        clean.Add(f.Alias);
+                        idx++;
+                    }
+                    
+                }
+            }
+        }
+
         private string SelectSql()
         {
             StringBuilder sb = new StringBuilder();
+
+            // Clean select list
+            CleanSelectList(false);
+
+
             string selectList = BaseTable().ToSql();
             foreach (Table t in Tables.Skip(1))
             {
@@ -373,7 +434,7 @@ namespace TinySql
                 tb.AddDeclaration(field.ParameterName, field.DeclareParameter());
                 set += field.SetParameter() + "\r\n";
             }
-            if (BaseTable.Output != null)
+            if (BaseTable.Output != null && BaseTable.Output.ParameterTable.FieldList.Count > 0)
             {
                 tb.AddDeclaration(BaseTable.Output.ParameterName, BaseTable.Output.DeclareParameter());
                 outputSelect += BaseTable.Output.SetParameter() + "\r\n";
@@ -385,7 +446,7 @@ namespace TinySql
 
             sb.AppendFormat("UPDATE  {0}\r\n", BaseTable.Name);
             sb.AppendFormat("   SET  {0}\r\n", BaseTable.ToSql());
-            if (BaseTable.Output != null)
+            if (BaseTable.Output != null && BaseTable.Output.ParameterTable.FieldList.Count > 0)
             {
                 sb.AppendFormat("OUTPUT  {0}\r\n", BaseTable.Output.ToSql());
             }
@@ -412,7 +473,8 @@ namespace TinySql
             Insert = 2,
             Update = 3,
             Delete = 4,
-            If = 5
+            If = 5,
+            Procedure = 6
         }
 
         private System.Globalization.CultureInfo _Culture = null;
@@ -422,11 +484,16 @@ namespace TinySql
             get { return _Culture ?? DefaultCulture; }
             set { _Culture = value; }
         }
+        private static CultureInfo _DefaultCulture = System.Globalization.CultureInfo.GetCultureInfo(1033);
         public static CultureInfo DefaultCulture
         {
             get
             {
-                return System.Globalization.CultureInfo.GetCultureInfo(1033);
+                return _DefaultCulture;
+            }
+            set
+            {
+                _DefaultCulture = value;
             }
         }
 
@@ -436,7 +503,7 @@ namespace TinySql
 
         public virtual Table BaseTable()
         {
-            return Tables[0];
+            return Tables.Count > 0 ? Tables[0] : null;
         }
 
 

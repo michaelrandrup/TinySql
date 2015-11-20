@@ -1,0 +1,24 @@
+﻿@using TinySql
+@using TinySql.Metadata
+@using TinySql.UI
+@*@model ResultTable*@
+
+
+<div class="container-fluid">
+    <div class="row">
+        <div id="tinysqllist" class="col-md-12"></div>
+    </div>
+</div>
+
+
+
+@section scripts {
+    @Scripts.Render("~/bundles/dataTables")
+    @Scripts.Render("~/Scripts/TinySql.js")
+}
+
+@section styles {
+    @Styles.Render("~/content/dataTables")
+}
+
+

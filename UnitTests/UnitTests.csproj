@@ -55,6 +55,36 @@
   </Choose>
   <ItemGroup>
     <Compile Include="BaseTest.cs" />
+    <Compile Include="Classes\Account.cs" />
+    <Compile Include="Classes\Activity.cs" />
+    <Compile Include="Classes\ApplicationSettings.cs" />
+    <Compile Include="Classes\Attachment.cs" />
+    <Compile Include="Classes\Campaign.cs" />
+    <Compile Include="Classes\CampaignActivity.cs" />
+    <Compile Include="Classes\CheckKode.cs" />
+    <Compile Include="Classes\Configuration.cs" />
+    <Compile Include="Classes\Contact.cs" />
+    <Compile Include="Classes\Eventlog.cs" />
+    <Compile Include="Classes\Kommune.cs" />
+    <Compile Include="Classes\List.cs" />
+    <Compile Include="Classes\Listmember.cs" />
+    <Compile Include="Classes\LogReadTable.cs" />
+    <Compile Include="Classes\LogUpdateTable.cs" />
+    <Compile Include="Classes\Organisation.cs" />
+    <Compile Include="Classes\ContactPartial.cs" />
+    <Compile Include="Classes\Postnummer.cs" />
+    <Compile Include="Classes\Region.cs" />
+    <Compile Include="Classes\SearchQuery.cs" />
+    <Compile Include="Classes\State.cs" />
+    <Compile Include="Classes\sysdiagrams.cs" />
+    <Compile Include="Classes\SystemPrivilege.cs" />
+    <Compile Include="Classes\SystemRole.cs" />
+    <Compile Include="Classes\SystemRolePrivilege.cs" />
+    <Compile Include="Classes\SystemUser.cs" />
+    <Compile Include="Classes\SystemUserRole.cs" />
+    <Compile Include="Classes\Template.cs" />
+    <Compile Include="Classes\UserSettings.cs" />
+    <Compile Include="Classes\ValidStates.cs" />
     <Compile Include="SetupData.cs" />
     <Compile Include="SqlSelectTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -64,6 +94,8 @@
     <Compile Include="MetadataSelectTests.cs" />
     <Compile Include="IfElseTests.cs" />
     <Compile Include="RowDataTests.cs" />
+    <Compile Include="StoredProcedureTests.cs" />
+    <Compile Include="TestRelatedInserts.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TinySql.csproj">
@@ -76,13 +108,9 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="OrderedInsertTests.orderedtest">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <None Include="Metadata\CreateMetadata.bat" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="DB\" />
-  </ItemGroup>
+  <ItemGroup />
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">
       <ItemGroup>

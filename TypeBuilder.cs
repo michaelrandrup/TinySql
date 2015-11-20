@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
@@ -7,6 +9,33 @@ using System.Xml;
 
 namespace TinySql
 {
+    public class TypeCache
+    {
+        private TypeCache()
+        {
+
+        }
+        private static TypeCache instance = null;
+        public static TypeCache Default
+        {
+            get
+            {
+                if (instance == null)
+                {
+                    instance = new TypeCache();
+                }
+                return instance;
+            }
+        }
+
+        //private static ConcurrentDictionary<Type, SqlBuilder> _Select = null;
+
+
+        
+        
+    }
+
+
     public static class TypeBuilder
     {
         public static SqlBuilder Select(Type ObjectType, string TableName = null, string[] Properties = null, string[] ExcludeProperties = null, int? Top = null, bool Distinct = false)
@@ -31,6 +60,11 @@ namespace TinySql
             }
             foreach (string Name in Properties.Except(ExcludeProperties))
             {
+                if (Name.Equals("*"))
+                {
+                    BaseTable.AllColumns(false);
+                    return builder;
+                }
                 BaseTable.Column(Name);
             }
             return builder;
@@ -145,7 +179,19 @@ namespace TinySql
                             }
                             else
                             {
-                                prop.SetValue(instance, row[col.ColumnName], null);
+                                if (col.DataType == typeof(decimal) && (prop.PropertyType == typeof(double) || prop.PropertyType == typeof(double?)))
+                                {
+                                    prop.SetValue(instance, Convert.ToDouble(row[col.ColumnName]), null);
+                                }
+                                else if (prop.PropertyType == typeof(bool))
+                                {
+                                    prop.SetValue(instance, Convert.ToBoolean(row[col.ColumnName]), null);
+                                }
+                                else
+                                {
+                                    prop.SetValue(instance, row[col.ColumnName], null);
+                                }
+                                
                             }
                         }
                     }

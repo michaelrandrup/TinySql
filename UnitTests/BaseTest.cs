@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Xml;
+using TinySql.Attributes;
 
 namespace UnitTests
 {
@@ -14,6 +15,8 @@ namespace UnitTests
         public void Initialize()
         {
             Assert.AreEqual<bool>(SetupData.Setup(), true);
+            TinySql.Cache.CacheProvider.UseResultCache = true;
+            TinySql.Cache.CacheProvider.ResultCache.CacheMinutes = 1;
         }
         public BaseTest()
         {
@@ -44,6 +47,7 @@ namespace UnitTests
 
         public decimal AccountTypeID{ get; set; }
 
+        [FK("State", toSchema: "")]
         public decimal StateID { get; set; }
 
         public string State { get; set; }

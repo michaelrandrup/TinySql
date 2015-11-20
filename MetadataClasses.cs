@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
@@ -40,6 +41,16 @@ namespace TinySql.Metadata
 
         public MetadataTable FindTable(string Name, StringComparison CompareOption = StringComparison.OrdinalIgnoreCase)
         {
+            MetadataTable mt = null;
+            string Schema = null;
+            if (!Name.Contains('.'))
+            {
+                Schema = "dbo.";
+            }
+            if (Tables.TryGetValue(Schema + Name, out mt))
+            {
+                return mt;
+            }
             string[] keys = Tables.Keys.Where(x => x.EndsWith(Name, CompareOption)).ToArray();
             if (keys.Length != 1)
             {
@@ -56,10 +67,10 @@ namespace TinySql.Metadata
     {
         public MetadataTable()
         {
-            
+
         }
         public int ID { get; set; }
-        public MetadataDatabase Parent { get; set; }
+        //public MetadataDatabase Parent { get; set; }
         public string Schema { get; set; }
         public string Name { get; set; }
 
@@ -70,8 +81,8 @@ namespace TinySql.Metadata
                 return (!string.IsNullOrEmpty(Schema) ? Schema + "." + Name : Name);
             }
         }
+
         
-        public ConcurrentDictionary<string, MetadataColumn> Columns = new ConcurrentDictionary<string, MetadataColumn>();
 
         public MetadataColumn this[string ColumnName]
         {
@@ -89,6 +100,62 @@ namespace TinySql.Metadata
             }
         }
 
+        private ConcurrentDictionary<string, MetadataColumn> _Columns = new ConcurrentDictionary<string, MetadataColumn>();
+
+        public ConcurrentDictionary<string, MetadataColumn> Columns
+        {
+            get { return _Columns; }
+            set { _Columns = value; }
+        }
+
+
+        #region Extended Properties
+
+        private ConcurrentDictionary<int, string> _DisplayNames = new ConcurrentDictionary<int, string>();
+
+        public ConcurrentDictionary<int, string> DisplayNames
+        {
+            get { return _DisplayNames; }
+            set { _DisplayNames = value; }
+        }
+
+        public string DisplayName
+        {
+            get
+            {
+                return this.GetDisplayName(SqlBuilder.DefaultCulture.LCID);
+            }
+        }
+        public string GetDisplayName(int LCID)
+        {
+            string value;
+            if (_DisplayNames.TryGetValue(SqlBuilder.DefaultCulture.LCID, out value))
+            {
+                return value;
+            }
+            return this.Name;
+        }
+
+        private string _TitleColumn = null;
+        public string TitleColumn
+        {
+            get { return _TitleColumn; }
+            set { _TitleColumn = value; }
+        }
+
+        private ConcurrentDictionary<string, List<string>> _ListDefinitions = new ConcurrentDictionary<string,List<string>>();
+
+        public ConcurrentDictionary<string, List<string>> ListDefinitions
+        {
+            get { return _ListDefinitions; }
+            set { _ListDefinitions = value; }
+        }
+        
+
+
+
+        #endregion
+
         public Key PrimaryKey
         {
             get
@@ -97,13 +164,16 @@ namespace TinySql.Metadata
             }
         }
 
-        public IEnumerable<MetadataForeignKey> FindForeignKeys(MetadataColumn Column)
+        public IEnumerable<MetadataForeignKey> FindForeignKeys(MetadataColumn Column, string ReferencedTable = null)
         {
             foreach (MetadataForeignKey FK in this.ForeignKeys.Values)
             {
                 if (FK.ColumnReferences.Select(x => x.Column).Any(x => x.Equals(Column)))
                 {
-                    yield return FK;
+                    if (ReferencedTable == null || FK.ReferencedTable.Equals(ReferencedTable, StringComparison.OrdinalIgnoreCase))
+                    {
+                        yield return FK;
+                    }
                 }
             }
         }
@@ -117,25 +187,34 @@ namespace TinySql.Metadata
         public int ID { get; set; }
 
         public MetadataTable Parent { get; set; }
-        public MetadataDatabase Database {get; set;}
-        
+        public MetadataDatabase Database { get; set; }
+
         public string Name { get; set; }
         public List<MetadataColumnReference> ColumnReferences = new List<MetadataColumnReference>();
         public string ReferencedSchema { get; set; }
         public string ReferencedTable { get; set; }
         public string ReferencedKey { get; set; }
+
+        private bool _IsVirtual = false;
+
+        public bool IsVirtual
+        {
+            get { return _IsVirtual; }
+            set { _IsVirtual = value; }
+        }
+
     }
 
     [Serializable]
     public class MetadataColumnReference
     {
-        public MetadataForeignKey Parent { get; set; }
-        public MetadataDatabase Database {get; set;}
-        
+        //public MetadataForeignKey Parent { get; set; }
+        //public MetadataDatabase Database { get; set; }
+
         public string Name { get; set; }
-        
-        public MetadataColumn Column {get; set;}
-        
+
+        public MetadataColumn Column { get; set; }
+
         public MetadataColumn ReferencedColumn { get; set; }
     }
 
@@ -145,13 +224,14 @@ namespace TinySql.Metadata
         public int ID { get; set; }
 
         public MetadataTable Parent { get; set; }
-        public MetadataDatabase Database {get; set;}
-        
+        public MetadataDatabase Database { get; set; }
+
         public string Name { get; set; }
         public List<MetadataColumn> Columns = new List<MetadataColumn>();
         public bool IsUnique { get; set; }
         public bool IsPrimaryKey { get; set; }
-        
+
+
     }
 
     public class ForeignKeyCollection : List<MetadataForeignKey> //  IEnumerable<MetadataForeignKey>
@@ -169,8 +249,8 @@ namespace TinySql.Metadata
         }
 
         public MetadataTable Parent { get; set; }
-        public MetadataDatabase Database {get; set;}
-        
+        public MetadataDatabase Database { get; set; }
+
         //public IEnumerator<MetadataForeignKey> GetEnumerator()
         //{
         //    foreach (int i in list)
@@ -194,8 +274,8 @@ namespace TinySql.Metadata
     {
         public int ID { get; set; }
         public MetadataTable Parent { get; set; }
-        public MetadataDatabase Database {get; set;}
-        
+        //public MetadataDatabase Database {get; set;}
+
         public string Name { get; set; }
         public string Collation { get; set; }
         public SqlDbType SqlDataType { get; set; }
@@ -225,7 +305,11 @@ namespace TinySql.Metadata
                 _DataTypeName = value;
                 if (_DataType == null)
                 {
-                    _DataType = Type.GetType(_DataTypeName);
+                    if (!string.IsNullOrEmpty(_DataTypeName))
+                    {
+                        _DataType = Type.GetType(_DataTypeName);
+                    }
+                    
                 }
             }
         }
@@ -238,7 +322,7 @@ namespace TinySql.Metadata
             set
             {
                 _DataType = value;
-                DataTypeName = _DataType.FullName;
+                DataTypeName = _DataType != null ? _DataType.FullName : "Virtual";
             }
         }
 
@@ -254,6 +338,7 @@ namespace TinySql.Metadata
         public bool Nullable { get; set; }
 
         [XmlIgnore]
+        [JsonIgnore]
         public bool IsReadOnly
         {
             get
@@ -261,6 +346,46 @@ namespace TinySql.Metadata
                 return IsComputed || IsIdentity || IsRowGuid;
             }
         }
+
+
+        #region Extended Properties
+        
+        private ConcurrentDictionary<int, string> _DisplayNames = new ConcurrentDictionary<int, string>();
+
+        public ConcurrentDictionary<int, string> DisplayNames
+        {
+            get { return _DisplayNames; }
+            set { _DisplayNames = value; }
+        }
+
+        public string DisplayName
+        {
+            get
+            {
+                return this.GetDisplayName(SqlBuilder.DefaultCulture.LCID);
+            }
+        }
+        public string GetDisplayName(int LCID)
+        {
+            string value;
+            if (_DisplayNames.TryGetValue(SqlBuilder.DefaultCulture.LCID, out value))
+            {
+                return value;
+            }
+            return this.Name;
+        }
+
+        private string[] _IncludeColumns = null;
+
+        public string[] IncludeColumns
+        {
+            get { return _IncludeColumns; }
+            set { _IncludeColumns = value; }
+        }
+
+        
+
+        #endregion
 
         public void PopulateField<T>(T field) where T : class
         {
