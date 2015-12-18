@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Microsoft.SqlServer.Management.Common;
 using Microsoft.SqlServer.Management.Smo;
 using System.Data;
@@ -10,7 +8,6 @@ using System.Runtime.Caching;
 using TinySql.Serialization;
 using System.IO;
 using System.Collections.Concurrent;
-using System.Collections.Specialized;
 
 namespace TinySql.Metadata
 {

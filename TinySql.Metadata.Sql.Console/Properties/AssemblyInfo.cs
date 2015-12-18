@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("TinySql.Metadata.Sql.Console")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyTitle("TinySql")]
+[assembly: AssemblyDescription("TinySql is a light-weight SQL Statement Builder for backend SQL Server operations. It also contains a metadata system based on optionally specified extended properties stored in the SQL database. The Commandline utility TSM.EXE can create POCO classes based on the backend database.")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("TinySql.Metadata.Sql.Console")]
-[assembly: AssemblyCopyright("Copyright ©  2015")]
+[assembly: AssemblyCompany("Michael Randrup")]
+[assembly: AssemblyProduct("TinySql")]
+[assembly: AssemblyCopyright("Copyright Michael Randrup ©  2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -32,5 +32,5 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("0.6.*")]
+[assembly: AssemblyFileVersion("0.6.0.0")]

@@ -1,5 +1,4 @@
-﻿using System;
-using TinySql.Metadata;
+﻿using TinySql.Metadata;
 
 namespace TinySql
 {

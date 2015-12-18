@@ -2,11 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using TinySql;
-using TinySql.Metadata;
-using TinySql.Serialization;
-using TinySql.Attributes;
 using System.IO;
 
 namespace TinySql.Metadata.Sql.CommandLine
