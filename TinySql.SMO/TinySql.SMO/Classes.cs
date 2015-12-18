@@ -244,7 +244,7 @@ namespace TinySql.Metadata
             }
 
             double t = 0;
-            double total = Changes != null ? Changes.Length : Tables != null ? Tables.Length : SqlDatabase.Tables.Count;
+            double total = Changes != null ? Changes.Length : Tables != null ? Tables.Length : SqlDatabase.Tables.Count + SqlDatabase.Views.Count;
             foreach (Microsoft.SqlServer.Management.Smo.Table table in SqlDatabase.Tables)
             {
                 if (Tables == null || Tables.Contains(table.Name))
@@ -264,8 +264,35 @@ namespace TinySql.Metadata
                         }
                     }
                 }
-
             }
+
+            foreach (Microsoft.SqlServer.Management.Smo.View view in SqlDatabase.Views)
+            {
+                if (view.IsSystemObject)
+                {
+                    t++;
+                    continue;
+                }
+                if (Tables == null || Tables.Contains(view.Name))
+                {
+                    if (Changes == null ||Changes.Contains(view.Schema + "." + view.Name))
+                    {
+                        view.Refresh();
+                        BuildMetadataView(mdb, view);
+                        if (MetadataUpdateEvent != null)
+                        {
+                            t++;
+                            RaiseUpdateEvent(Convert.ToInt32((t / total) * 100), view.Schema + "." + view.Name + " built");
+                        }
+                        if (t == total)
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+
+
             ToCache(mdb);
             return mdb;
 
@@ -292,6 +319,198 @@ namespace TinySql.Metadata
                 return value.Split(separators, StringSplitOptions.RemoveEmptyEntries);
             }
             return null;
+        }
+
+        private MetadataTable BuildMetadataView(MetadataDatabase mdb, Microsoft.SqlServer.Management.Smo.View view, bool PrimaryKeyIndexOnly = true, bool SelfJoin = false)
+        {
+            MetadataTable mt = null;
+            List<VirtualForeignKey> VirtualKeys = new List<VirtualForeignKey>();
+            view.Refresh();
+            if (mdb.Tables.TryGetValue(view.Name, out mt))
+            {
+                return mt;
+            }
+
+            mt = new MetadataTable()
+            {
+                ID = view.ID,
+                Schema = view.Schema,
+                Name = view.Name,
+                //Parent = mdb
+            };
+            mt.TitleColumn = GetExtendedProperty("TitleColumn", view.ExtendedProperties);
+            string[] values = GetExtendedProperty("DisplayName", view.ExtendedProperties, new char[] { '\r', '\n' });
+            if (values != null)
+            {
+                foreach (string value in values)
+                {
+                    string[] v = value.Split(new char[] { '=' }, StringSplitOptions.RemoveEmptyEntries);
+                    mt.DisplayNames.TryAdd(Convert.ToInt32(v[0]), v[1]);
+                }
+            }
+
+            values = GetExtendedProperty("Lists", view.ExtendedProperties, new char[] { '\r', '\n' });
+            if (values != null)
+            {
+                foreach (string value in values)
+                {
+                    string[] v = value.Split(new char[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
+                    List<string> v2 = v[1].Split(',').ToList();
+                    if (!mt.ListDefinitions.TryAdd(v[0].Trim(), v2))
+                    {
+                        throw new InvalidOperationException(string.Format("The TinySql.Lists extended property is invalid for the table '{0}'", view.Name));
+                    }
+                }
+            }
+
+
+
+
+
+
+            foreach (Microsoft.SqlServer.Management.Smo.Column column in view.Columns)
+            {
+                try
+                {
+                    MetadataColumn col = new MetadataColumn()
+                    {
+                        ID = column.ID,
+                        Parent = mt,
+                        //Database = mdb,
+                        Name = column.Name,
+                        Collation = column.Collation,
+                        Default = column.Default,
+                        IsComputed = column.Computed,
+                        ComputedText = column.ComputedText,
+                        IsPrimaryKey = column.InPrimaryKey,
+                        IsIdentity = column.Identity,
+                        IsForeignKey = column.IsForeignKey,
+                        IdentityIncrement = column.IdentityIncrement,
+                        IdentitySeed = column.IdentitySeed,
+                        Nullable = column.Nullable,
+                        IsRowGuid = column.RowGuidCol
+                    };
+                    BuildColumnDataType(col, column);
+
+                    values = GetExtendedProperty("DisplayName", column.ExtendedProperties, new char[] { '\r', '\n' });
+                    if (values != null)
+                    {
+                        foreach (string value in values)
+                        {
+                            if (!value.Contains("="))
+                            {
+                                col.DisplayNames.TryAdd(SqlBuilder.DefaultCulture.LCID, value);
+                            }
+                            else
+                            {
+                                string[] v = value.Split(new char[] { '=' }, StringSplitOptions.RemoveEmptyEntries);
+                                col.DisplayNames.TryAdd(Convert.ToInt32(v[0]), v[1]);
+                            }
+
+                        }
+                    }
+
+
+
+
+
+                    col.IncludeColumns = GetExtendedProperty("IncludeColumns", column.ExtendedProperties, new char[] { ',' });
+
+                    values = GetExtendedProperty("FK", column.ExtendedProperties, new char[] { '\r', '\n' });
+                    if (values != null)
+                    {
+                        VirtualKeys.Add(new VirtualForeignKey() { Column = col, values = values });
+                        col.IsForeignKey = true;
+                    }
+
+
+
+                    mt.Columns.AddOrUpdate(col.Name, col, (k, v) => { return col; });
+
+
+                }
+                catch (Exception exColumn)
+                {
+                    throw new InvalidOperationException(string.Format("Unable to generate the column {0}", column.Name), exColumn);
+                }
+            }
+
+
+            if (view.IsIndexable)
+            {
+                foreach (Index idx in view.Indexes)
+                {
+                    if (!PrimaryKeyIndexOnly || idx.IndexKeyType == IndexKeyType.DriPrimaryKey)
+                    {
+                        Key key = new Key()
+                        {
+                            ID = idx.ID,
+                            Parent = mt,
+                            Database = mdb,
+                            Name = idx.Name,
+                            IsUnique = idx.IsUnique,
+                            IsPrimaryKey = idx.IndexKeyType == IndexKeyType.DriPrimaryKey
+                        };
+                        foreach (IndexedColumn c in idx.IndexedColumns)
+                        {
+                            key.Columns.Add(mt[c.Name]);
+                        }
+                        mt.Indexes.AddOrUpdate(key.Name, key, (k, v) => { return key; });
+                    }
+                }
+            }
+            
+            //if (!SelfJoin)
+            //{
+            //    foreach (ForeignKey FK in view.ForeignKeys)
+            //    {
+            //        MetadataForeignKey mfk = new MetadataForeignKey()
+            //        {
+            //            ID = FK.ID,
+            //            Parent = mt,
+            //            Database = mdb,
+            //            Name = FK.Name,
+            //            ReferencedKey = FK.ReferencedKey,
+            //            ReferencedSchema = FK.ReferencedTableSchema,
+            //            ReferencedTable = FK.ReferencedTable
+            //        };
+            //        MetadataTable mtref = null;
+            //        if (!mdb.Tables.TryGetValue(mfk.ReferencedSchema + "." + mfk.ReferencedTable, out mtref))
+            //        {
+            //            bool self = false;
+            //            if ((mfk.ReferencedSchema == mt.Schema && mfk.ReferencedTable == mt.Name) || TablesInProgress.Contains(mfk.ReferencedSchema + "." + mfk.ReferencedTable))
+            //            {
+            //                self = true;
+            //            }
+            //            TablesInProgress.Add(mfk.ReferencedSchema + "." + mfk.ReferencedTable);
+            //            mtref = BuildMetadata(mdb, mfk.ReferencedTable, mfk.ReferencedSchema, PrimaryKeyIndexOnly, self);
+            //        }
+            //        foreach (ForeignKeyColumn cc in FK.Columns)
+            //        {
+            //            mfk.ColumnReferences.Add(new MetadataColumnReference()
+            //            {
+            //                Name = cc.Name,
+            //                Column = mt[cc.Name],
+            //                ReferencedColumn = mtref[cc.ReferencedColumn]
+            //            });
+            //        }
+            //        mt.ForeignKeys.AddOrUpdate(mfk.Name, mfk, (key, existing) =>
+            //        {
+            //            return mfk;
+            //        });
+            //    }
+            //}
+
+            if (VirtualKeys.Count > 0)
+            {
+                BuildVirtualKeys(VirtualKeys, mt, mdb, PrimaryKeyIndexOnly);
+            }
+
+            mdb.Tables.AddOrUpdate(mt.Schema + "." + mt.Name, mt, (key, existing) =>
+            {
+                return mt;
+            });
+            return mt;
         }
 
         private MetadataTable BuildMetadata(MetadataDatabase mdb, Microsoft.SqlServer.Management.Smo.Table table, bool PrimaryKeyIndexOnly = true, bool SelfJoin = false)

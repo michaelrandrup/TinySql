@@ -79,7 +79,7 @@ namespace TinySql.Metadata.Sql.CommandLine
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("Connecting to " + ConnectionString);
                 SqlMetadataDatabase db = SqlMetadataDatabase.FromConnection(ConnectionString, Update, File.Exists(OutputFile) ? OutputFile : null);
-                Console.WriteLine("{0} metadata for {1} tables...",Update ? "Updating" : "Building", Tables == null ? "all" : Tables.Length.ToString());
+                Console.WriteLine("{0} metadata for {1} tables and views...",Update ? "Updating" : "Building", Tables == null ? "all" : Tables.Length.ToString());
                 if (Update)
                 {
                     db.FileName = OutputFile;
