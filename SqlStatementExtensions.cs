@@ -248,6 +248,20 @@ namespace TinySql
             }
         }
 
+        public static InsertIntoTable Value(this InsertIntoTable table, string FieldName, object Value)
+        {
+            Field f = new ParameterField()
+            {
+                Table = table,
+                DataType = Value.GetType(),
+                Name = FieldName,
+                ParameterName = "@" + FieldName,
+                Value = Value
+            };
+            table.FieldList.Add(f.PopulateField());
+            return table;
+        }
+
         public static InsertIntoTable Value<T>(this InsertIntoTable table, string FieldName, T Value, SqlDbType DataType, int MaxLength = -1, int Scale = -1)
         {
             Field f = new ParameterField<T>()

@@ -70,6 +70,33 @@ namespace TinySql
             return builder;
         }
 
+        public static SqlBuilder Insert<T>(T instance, string TableName = null, string[] Properties = null, string[] ExcludeProperties = null)
+        {
+            InsertIntoTable table = SqlBuilder.Insert()
+                .Into(TableName ?? instance.GetType().Name);
+
+            
+
+            if (Properties == null)
+            {
+                Properties = instance.GetType().GetProperties().Select(x => x.Name).ToArray();
+            }
+            if (ExcludeProperties == null)
+            {
+                ExcludeProperties = new string[0];
+            }
+            foreach (string Name in Properties.Except(ExcludeProperties))
+            {
+                PropertyInfo prop = instance.GetType().GetProperty(Name);
+                if (prop.CanRead && prop.CanWrite)
+                {
+                    table.Value(prop.Name, prop.GetValue(instance));
+                }
+            }
+
+                return table.Output().PrimaryKey().Builder();
+        }
+
         public static SqlBuilder Update<TModel, TProperty>(this TableHelper<TModel> helper, TModel Instance, Expression<Func<TModel, TProperty>> prop)
         {
             return helper.table.Builder;
