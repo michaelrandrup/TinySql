@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Xml;
 using TinySql.Attributes;
+using TinySql.Classes;
 
 namespace UnitTests
 {
@@ -65,7 +66,7 @@ namespace UnitTests
         public decimal OwningUserID { get; set; }
         public decimal OwningBusinessUnitID { get; set; }
 
-
+        public List<Contact> Contacts { get; set; }
 
 
 

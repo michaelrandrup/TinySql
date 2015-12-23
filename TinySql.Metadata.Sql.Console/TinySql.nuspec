@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
   <metadata>
     <id>TinySql</id>
-    <version>0.6.5-beta</version>
+    <version>0.6.6-rc1</version>
     <title>TinySql</title>
     <authors>Michael Randrup</authors>
     <owners>michaelrandrup</owners>
@@ -11,6 +11,7 @@
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>Like the .NET StringBuilder, the TinySql SqlBuilder is a small and fast object-oriented SQL statement builder</description>
     <releaseNotes>
+      Version 0.6.6 PopulateObject() can populate object hierachies from ResultTables
       TSM.exe in Version 0.6.5 can generate metadata and POCO classes on views as well as tables
       Version 0.6.4 is the working version. See the GitHub project for details
       Version 0.6.1+ is Built for .NET 4.5

@@ -250,10 +250,12 @@ namespace TinySql
 
         public static InsertIntoTable Value(this InsertIntoTable table, string FieldName, object Value)
         {
+            
             Field f = new ParameterField()
             {
+                Builder = table.Builder,
                 Table = table,
-                DataType = Value.GetType(),
+                DataType = Value == null ? null : Value.GetType(),
                 Name = FieldName,
                 ParameterName = "@" + FieldName,
                 Value = Value

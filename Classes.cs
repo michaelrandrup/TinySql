@@ -566,10 +566,11 @@ namespace TinySql
 
         public override IEnumerable<string> GetDynamicMemberNames()
         {
-            foreach (string key in _OriginalValues.Keys)
-            {
-                yield return key;
-            }
+            return _OriginalValues.Keys.AsEnumerable();
+            //foreach (string key in _OriginalValues.Keys)
+            //{
+            //    yield return key;
+            //}
             //yield return "Parent";
         }
 
