@@ -128,8 +128,8 @@ namespace TinySql
                 Scale = Scale,
                 SqlDataType = SqlDataType,
                 DataType = DataType,
-                Value = Value
-
+                Value = Value,
+                Table = table
 
             }.PopulateField());
             return table;
@@ -145,7 +145,9 @@ namespace TinySql
                 MaxLength = MaxLength,
                 Scale = Scale,
                 SqlDataType = DataType,
-                FieldValue = Value
+                FieldValue = Value,
+                Table = table,
+                DataType = Value.GetType()
             }.PopulateField());
             return table;
         }
@@ -246,6 +248,22 @@ namespace TinySql
                 builder.Tables.Add(t);
                 return t;
             }
+        }
+
+        public static InsertIntoTable Value(this InsertIntoTable table, string FieldName, object Value)
+        {
+            
+            Field f = new ParameterField()
+            {
+                Builder = table.Builder,
+                Table = table,
+                DataType = Value == null ? null : Value.GetType(),
+                Name = FieldName,
+                ParameterName = "@" + FieldName,
+                Value = Value
+            };
+            table.FieldList.Add(f.PopulateField());
+            return table;
         }
 
         public static InsertIntoTable Value<T>(this InsertIntoTable table, string FieldName, T Value, SqlDbType DataType, int MaxLength = -1, int Scale = -1)
@@ -1009,8 +1027,10 @@ namespace TinySql
                 Table = t,
                 Name = FieldName,
                 Builder = group.Builder,
-                Value = value
+                Value = value,
+                DataType = value.GetType()
             };
+            fv.PopulateField();
             FieldCondition fc = new FieldCondition()
             {
                 Builder = group.Builder,
@@ -1044,9 +1064,10 @@ namespace TinySql
                 Table = t,
                 Name = f != null ? f.Name : FieldName,
                 Builder = group.Builder,
-                FieldValue = value
-
+                FieldValue = value,
+                DataType = value.GetType()
             };
+            fv.TryPopulateField();
             FieldCondition fc = new FieldCondition()
             {
                 Builder = group.Builder,
@@ -1054,7 +1075,7 @@ namespace TinySql
                 ParentGroup = group,
                 Condition = Operator,
                 LeftTable = t,
-                leftField = fv
+                leftField = fv.PopulateField()
             };
             group.Conditions.Add(fc);
             if (group.SubConditions.Count > 0)
@@ -1087,6 +1108,41 @@ namespace TinySql
             f.TryPopulateField();
             return f;
         }
+
+        //internal static ParameterField PopulateField(this ParameterField f)
+        //{
+        //    f.TryPopulateField();
+        //    return f;
+        //}
+
+        //internal static bool TryPopulateField(this ParameterField f, string UseTable = null, string UseField = null)
+        //{
+        //    if (f.Table == null && string.IsNullOrEmpty(UseTable))
+        //    {
+        //        return false;
+        //    }
+
+        //    MetadataDatabase mdb = f.Table != null ? f.Table.Builder.Metadata : f.Builder.Metadata;
+
+        //    if (mdb == null)
+        //    {
+        //        return false;
+        //    }
+        //    MetadataTable mt = mdb.FindTable(string.IsNullOrEmpty(UseTable) ? f.Table.FullName : UseTable);
+        //    if (mt == null)
+        //    {
+        //        return false;
+        //    }
+        //    MetadataColumn mc = null;
+        //    if (!mt.Columns.TryGetValue(string.IsNullOrEmpty(UseField) ? f.Name : UseField, out mc))
+        //    {
+        //        return false;
+        //    }
+        //    mc.PopulateField<Field>(f);
+        //    return true;
+        //}
+
+
         internal static bool TryPopulateField(this Field f, string UseTable = null, string UseField = null)
         {
             if (f.Table == null && string.IsNullOrEmpty(UseTable))

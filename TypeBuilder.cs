@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections;
 using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
@@ -31,8 +32,8 @@ namespace TinySql
         //private static ConcurrentDictionary<Type, SqlBuilder> _Select = null;
 
 
-        
-        
+
+
     }
 
 
@@ -70,6 +71,84 @@ namespace TinySql
             return builder;
         }
 
+        public static SqlBuilder Update<T>(T instance, string TableName = null, string Schema = null, string[] Properties = null, string[] ExcludeProperties = null, bool OutputPrimaryKey = false)
+        {
+            UpdateTable table = SqlBuilder.Update()
+                .Table(TableName ?? instance.GetType().Name,Schema);
+
+            Metadata.MetadataTable mt = SqlBuilder.DefaultMetadata.FindTable(TableName ?? instance.GetType().Name);
+
+            if (Properties == null)
+            {
+                Properties = instance.GetType().GetProperties().Select(x => x.Name).ToArray();
+            }
+            if (ExcludeProperties != null)
+            {
+                Properties = Properties.Except(ExcludeProperties).ToArray();
+            }
+
+            foreach (Metadata.MetadataColumn col in mt.Columns.Values)
+            {
+                if (Properties.Contains(col.Name) && !col.IsIdentity && !col.IsReadOnly)
+                {
+                    PropertyInfo prop = instance.GetType().GetProperty(col.Name);
+                    if (prop.CanRead && prop.CanWrite)
+                    {
+                        table.Set(col.Name, prop.GetValue(instance), col.SqlDataType,prop.PropertyType);
+                    }
+                }
+            }
+            List<object> pk = new List<object>();
+            mt.PrimaryKey.Columns.ForEach((col) =>
+            {
+                PropertyInfo prop = instance.GetType().GetProperty(col.Name);
+                pk.Add(prop.GetValue(instance));
+            });
+            table.WithMetadata().WherePrimaryKey(pk.ToArray());
+            if (OutputPrimaryKey)
+            {
+                return table.Output().PrimaryKey().Builder();
+            }
+            else
+            {
+                return table.Builder();
+            }
+            
+        }
+
+
+        public static SqlBuilder Insert<T>(T instance, string TableName = null, string[] Properties = null, string[] ExcludeProperties = null)
+        {
+            InsertIntoTable table = SqlBuilder.Insert()
+                .Into(TableName ?? instance.GetType().Name);
+
+            Metadata.MetadataTable mt = SqlBuilder.DefaultMetadata.FindTable(TableName ?? instance.GetType().Name);
+
+
+            if (Properties == null)
+            {
+                Properties = instance.GetType().GetProperties().Select(x => x.Name).ToArray();
+            }
+            if (ExcludeProperties != null)
+            {
+                Properties = Properties.Except(ExcludeProperties).ToArray();
+            }
+            foreach (Metadata.MetadataColumn col in mt.Columns.Values)
+            {
+                if (Properties.Contains(col.Name) && !col.IsIdentity && !col.IsReadOnly)
+                {
+                    PropertyInfo prop = instance.GetType().GetProperty(col.Name);
+                    if (prop.CanRead && prop.CanWrite)
+                    {
+                        table.Value(prop.Name, prop.GetValue(instance));
+                    }
+                }
+            }
+
+
+            return table.Output().PrimaryKey().Builder();
+        }
+
         public static SqlBuilder Update<TModel, TProperty>(this TableHelper<TModel> helper, TModel Instance, Expression<Func<TModel, TProperty>> prop)
         {
             return helper.table.Builder;
@@ -78,8 +157,8 @@ namespace TinySql
         public static void UpdateEx<TModel, TProperty>(this ModelHelper<TModel> helper, Expression<Func<TModel, TProperty>> prop)
         {
             TProperty t = prop.Compile().Invoke(helper.Model);
-            
-            
+
+
         }
 
         public class ModelHelper<TModel>
@@ -191,7 +270,7 @@ namespace TinySql
                                 {
                                     prop.SetValue(instance, row[col.ColumnName], null);
                                 }
-                                
+
                             }
                         }
                     }
@@ -203,6 +282,52 @@ namespace TinySql
             }
             return instance;
         }
+
+        public static List<T> PopulateObject<T>(ResultTable table)
+        {
+            List<T> list = new List<T>();
+            foreach (RowData row in table)
+            {
+                list.Add(PopulateObject<T>(row));
+            }
+            return list;
+        }
+
+        private static object PopulateObject(Type t, RowData row)
+        {
+            object instance = Activator.CreateInstance(t);
+            foreach (string prop in row.GetDynamicMemberNames())
+            {
+                PropertyInfo p = instance.GetType().GetProperty(prop);
+                if (p != null && p.CanWrite)
+                {
+                    object o = row.Column(prop);
+                    if (o is ResultTable && p.PropertyType.GetInterface("IList",true) != null)
+                    {
+                        Type listType = typeof(List<>);
+                        Type[] args = p.PropertyType.GetGenericArguments();
+                        Type genericList = listType.MakeGenericType(args);
+                        object listInstance = Activator.CreateInstance(genericList);
+                        foreach (RowData r in (o as ResultTable))
+                        {
+                            ((IList)listInstance).Add(PopulateObject(args[0], r));
+                        }
+                        p.SetValue(instance, listInstance);
+                    }
+                    else
+                    {
+                        p.SetValue(instance, o);
+                    }
+                }
+            }
+            return instance;
+        }
+
+        public static T PopulateObject<T>(RowData row)
+        {
+            return (T)PopulateObject(typeof(T), row);
+        }
+
 
         public static T PopulateObject<T>(DataTable dt, DataRow row, bool AllowPrivateProperties, bool EnforceTypesafety, bool UseDefaultConstructor = true)
         {

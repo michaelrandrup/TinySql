@@ -10,6 +10,35 @@ namespace UnitTests
     public class SqlUpdateTests : BaseTest
     {
         [TestMethod]
+        public void UpdateAccountFromObject()
+        {
+            SqlBuilder builder = SqlBuilder.Select()
+                .From("Account")
+                .AllColumns()
+                .Where<decimal>("account", "AccountID", SqlOperators.Equal, 526)
+                .Builder();
+
+            Account account = builder.FirstOrDefault<Account>();
+            account.ModifiedOn = DateTime.Now;
+            string OldName = account.Name;
+            account.Name = Guid.NewGuid().ToString();
+            Console.WriteLine("Updating account ID 526 from Name {0} to {1}", OldName, account.Name);
+            Guid g = StopWatch.Start();
+            builder = TypeBuilder.Update<Account>(account,"Account");
+            Console.WriteLine(builder.ToSql());
+            int i = builder.ExecuteNonQuery();
+            Assert.IsTrue(i == 1, "Account 526 was NOT updated");
+            Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds, "Account 526 updated to the new name in {0}ms"));
+            g = StopWatch.Start();
+            account.Name = OldName;
+            builder = TypeBuilder.Update<Account>(account, Properties: new string[] { "Name", "ModifiedOn" });
+            i = builder.ExecuteNonQuery();
+            Assert.IsTrue(i == 1, "Account 526 was NOT updated back to the original name again");
+            Console.WriteLine(StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds, "Account 526 updated back to the original name again in {0}ms"));
+        }
+
+
+        [TestMethod]
         public void UpdateAccountWithOutputResults()
         {
             string NewName = Guid.NewGuid().ToString();

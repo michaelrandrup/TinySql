@@ -14,6 +14,45 @@ namespace UnitTests
     public class SqlSelectTests : BaseTest
     {
         [TestMethod]
+        public void PopulateListClassFromResultTable()
+        {
+            Guid g = StopWatch.Start();
+            SqlBuilder builder = SqlBuilder.Select()
+                .From("Account")
+                .AllColumns(false)
+                .SubSelect("Contact", "AccountID", "AccountID", null, null, "Contacts")
+                .AllColumns(false)
+                .Builder();
+            Console.WriteLine(builder.ToSql());
+            ResultTable result = builder.Execute();
+            Console.WriteLine("ResulTable with {0} rows executed in {1}ms", result.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
+            g = StopWatch.Start();
+            List<Account> accounts = TypeBuilder.PopulateObject<Account>(result);
+            Console.WriteLine("List<Account> with {0} rows created from ResultTable executed in {1}ms", accounts.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
+            Console.WriteLine("List<Account> has a total of {0} contacts", accounts.SelectMany(x => x.Contacts).Count());
+        }
+
+        [TestMethod]
+        public void PopulateClassFromResultTable()
+        {
+            Guid g = StopWatch.Start();
+            SqlBuilder builder = SqlBuilder.Select(1)
+                .From("Account")
+                .AllColumns(false)
+                .SubSelect("Contact", "AccountID", "AccountID", null, null, "Contacts")
+                .AllColumns(false)
+                .Builder();
+            Console.WriteLine(builder.ToSql());
+            ResultTable result = builder.Execute();
+            Console.WriteLine("ResulTable with {0} rows executed in {1}ms", result.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
+            g = StopWatch.Start();
+            Account account = TypeBuilder.PopulateObject<Account>(result.First());
+            Console.WriteLine("Account {0}-{1} with {2} Contacts created from RowData executed in {3}ms", account.AccountID, account.Name,account.Contacts.Count, StopWatch.Stop(g, StopWatch.WatchTypes.Milliseconds));
+        }
+
+
+
+        [TestMethod]
         public void TestHashCodes()
         {
             SqlBuilder Builder1 = SqlBuilder.Select().From("Contact").WithMetadata().InnerJoin("AccountID").Builder();

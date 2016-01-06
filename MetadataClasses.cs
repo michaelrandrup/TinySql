@@ -395,6 +395,7 @@ namespace TinySql.Metadata
             f.Scale = this.Scale;
             f.Precision = this.Precision;
             f.SqlDataType = this.SqlDataType;
+            
         }
 
     }

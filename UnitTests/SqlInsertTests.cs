@@ -11,12 +11,55 @@ namespace UnitTests
     public class SqlInsertTests : BaseTest
     {
         static decimal FirstInsertedId = 99999999;
+
+        [TestMethod]
+        public void InsertAccountFromObject()
+        {
+            Guid g = StopWatch.Start();
+            Account acc = new Account()
+            {
+                AccountID = 88888888,
+                Name = "Test Account",
+                AccountTypeID = 1,
+                DatasourceID = 1,
+                StateID = 1,
+                CreatedBy = 1,
+                CreatedOn = DateTime.Now,
+                ModifiedBy = 1,
+                ModifiedOn = DateTime.Now,
+                OwningUserID = 1,
+                OwningBusinessUnitID = 1
+            };
+
+            SqlBuilder builder = TypeBuilder.Insert<Account>(acc);
+            Console.WriteLine(builder.ToSql());
+            ResultTable result = builder.Execute();
+            Assert.IsTrue(result.Count == 1);
+            decimal i = result.First().Column<decimal>("AccountID");
+            Console.WriteLine("Inserted Account {0}", i);
+
+
+            SqlBuilder b1 = SqlBuilder.Delete()
+                .From("account", null)
+                .Where<decimal>("account", "AccountID", SqlOperators.Equal, i)
+                .Builder;
+
+
+            i = new SqlBuilder[] { b1 }.ExecuteNonQuery();
+            Console.WriteLine("{0} Accounts deleted", i);
+            Assert.IsTrue(i == 1); 
+
+        }
+
+
         [TestMethod]
         public void InsertOneAccount()
         {
             Assert.IsTrue(InsertOneAccountInternal() == 1);
         }
         
+        
+
         public int InsertOneAccountInternal(bool WriteSql = true)
         {
             Guid g = StopWatch.Start();

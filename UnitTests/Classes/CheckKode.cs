@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using TinySql.Attributes;
 
 namespace TinySql.Classes
-{	public partial class CheckKode
+{	public partial class Checkkode
 {
 		[PK]
 		public Decimal  CheckGroup { get; set; }

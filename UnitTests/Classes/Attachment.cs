@@ -8,7 +8,7 @@ namespace TinySql.Classes
 		[PK]
 		public Decimal  AttachmentID { get; set; }
 
-		[FK("Activity","ActivityID","dbo","Activity_Attachment_ActivityID")]
+		[FK("Activity","ActivityID","dbo","Activity_ActivityID_Attachment_ActivityID")]
 		public Nullable<Decimal>  ActivityID { get; set; }
 
 		public Decimal  CreatedBy { get; set; }

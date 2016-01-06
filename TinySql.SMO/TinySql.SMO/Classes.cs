@@ -546,7 +546,7 @@ namespace TinySql.Metadata
             {
                 foreach (string value in values)
                 {
-                    string[] v = value.Split(new char[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
+                    string[] v = value.Split(new char[] { '=' }, StringSplitOptions.RemoveEmptyEntries);
                     List<string> v2 = v[1].Split(',').ToList();
                     if (!mt.ListDefinitions.TryAdd(v[0].Trim(), v2))
                     {

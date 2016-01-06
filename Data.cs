@@ -384,7 +384,20 @@ namespace TinySql
 
         #endregion
 
-        #region List<T> Methods
+        #region FirstOrDefault<T> Methods
+        public static T FirstOrDefault<T>(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
+        {
+            DataTable dt = DataTable(Builder, ConnectionString, TimeoutSeconds, Format);
+            if (dt.Rows.Count == 0)
+            {
+                return default(T);
+            }
+            return TypeBuilder.PopulateObject<T>(dt, dt.Rows[0], AllowPrivateProperties, EnforceTypesafety);
+        }
+
+        #endregion
+
+            #region List<T> Methods
 
         public static List<T> All<T>(string TableName = null, int? Top = null, bool Distinct = false, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true)
         {
@@ -416,10 +429,6 @@ namespace TinySql
             }
             return (S)list;
         }
-
-
-
-
 
         public static S List<T, S>(this SqlBuilder Builder, string ConnectionString = null, int TimeoutSeconds = 30, bool AllowPrivateProperties = false, bool EnforceTypesafety = true, params object[] Format)
         {
