@@ -201,7 +201,7 @@ namespace TinySql
 
         public string ToSql(params object[] Format)
         {
-            if (Format == null)
+            if (Format == null || Format.Length == 0)
             {
                 return ToSql();
             }

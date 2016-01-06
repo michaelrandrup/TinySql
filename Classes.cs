@@ -377,7 +377,7 @@ namespace TinySql
             if (mt == null) { return; }
             _OriginalValues.AddOrUpdate("__TABLE", mt.Fullname, (k, v) => { return mt.Fullname; });
             
-            if (CachePrimaryKey)
+            if (CachePrimaryKey && mt.PrimaryKey!= null)
             {
                 _OriginalValues.AddOrUpdate("__PK", mt.PrimaryKey.Columns, (k, v) => { return mt.PrimaryKey.Columns; });
             }
@@ -799,7 +799,7 @@ namespace TinySql
 
     public class IfElseConditionGroup : WhereConditionGroup
     {
-        public IfStatement Parent { get; set; }
+        public new IfStatement Parent { get; set; }
     }
 
 
@@ -876,10 +876,10 @@ namespace TinySql
         }
 
         public new Table Parent;
-        private new BoolOperators ConditionLink = BoolOperators.None;
+        // private new BoolOperators ConditionLink = BoolOperators.None;
         private new List<ConditionGroup> SubConditions = new List<ConditionGroup>();
-        public List<FieldCondition> Conditions = new List<FieldCondition>();
-        public SqlBuilder Builder;
+        public new List<FieldCondition> Conditions = new List<FieldCondition>();
+        // public SqlBuilder Builder;
     }
 
     public class ConditionGroup

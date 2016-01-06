@@ -71,6 +71,52 @@ namespace TinySql
             return builder;
         }
 
+        public static SqlBuilder Update<T>(T instance, string TableName = null, string Schema = null, string[] Properties = null, string[] ExcludeProperties = null, bool OutputPrimaryKey = false)
+        {
+            UpdateTable table = SqlBuilder.Update()
+                .Table(TableName ?? instance.GetType().Name,Schema);
+
+            Metadata.MetadataTable mt = SqlBuilder.DefaultMetadata.FindTable(TableName ?? instance.GetType().Name);
+
+            if (Properties == null)
+            {
+                Properties = instance.GetType().GetProperties().Select(x => x.Name).ToArray();
+            }
+            if (ExcludeProperties != null)
+            {
+                Properties = Properties.Except(ExcludeProperties).ToArray();
+            }
+
+            foreach (Metadata.MetadataColumn col in mt.Columns.Values)
+            {
+                if (Properties.Contains(col.Name) && !col.IsIdentity && !col.IsReadOnly)
+                {
+                    PropertyInfo prop = instance.GetType().GetProperty(col.Name);
+                    if (prop.CanRead && prop.CanWrite)
+                    {
+                        table.Set(col.Name, prop.GetValue(instance), col.SqlDataType,prop.PropertyType);
+                    }
+                }
+            }
+            List<object> pk = new List<object>();
+            mt.PrimaryKey.Columns.ForEach((col) =>
+            {
+                PropertyInfo prop = instance.GetType().GetProperty(col.Name);
+                pk.Add(prop.GetValue(instance));
+            });
+            table.WithMetadata().WherePrimaryKey(pk.ToArray());
+            if (OutputPrimaryKey)
+            {
+                return table.Output().PrimaryKey().Builder();
+            }
+            else
+            {
+                return table.Builder();
+            }
+            
+        }
+
+
         public static SqlBuilder Insert<T>(T instance, string TableName = null, string[] Properties = null, string[] ExcludeProperties = null)
         {
             InsertIntoTable table = SqlBuilder.Insert()
