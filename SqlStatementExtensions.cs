@@ -868,6 +868,11 @@ namespace TinySql
             return (WhereConditionGroup)WhereInternal<T>(table.Builder.WhereConditions, TableName, FieldName, Operator, value);
         }
 
+        public static WhereConditionGroup Where(this Table table, string LeftTableName, string LeftFieldName, string RightTableName, string RightFieldName, SqlOperators Operator)
+        {
+            return (WhereConditionGroup)WhereInternal(table.Builder.WhereConditions, LeftTableName, LeftFieldName, RightTableName, RightFieldName, Operator);
+        }
+
         public static ExistsConditionGroup WhereExists(this Table table, string InTable)
         {
             return ExistsInternal(table.Builder.WhereConditions, InTable, table.Alias, table.Builder.WhereConditions.Conditions.Count > 0 ? BoolOperators.And : BoolOperators.None, false);
@@ -1052,12 +1057,7 @@ namespace TinySql
 
         private static ConditionGroup WhereInternal<T>(ConditionGroup group, string TableName, string FieldName, SqlOperators Operator, T value, BoolOperators LinkType = BoolOperators.None)
         {
-
-            Table t = group.Builder.Tables.FirstOrDefault(x => x.Name.Equals(TableName, StringComparison.InvariantCultureIgnoreCase) || (x.Alias != null && x.Alias.Equals(TableName, StringComparison.InvariantCultureIgnoreCase)) || x.FullName.Equals(TableName, StringComparison.InvariantCultureIgnoreCase));
-            if (t == null)
-            {
-                throw new InvalidOperationException(string.Format("The WHERE condition table '{0}' does not exist", TableName));
-            }
+            Table t = GetTable(group, TableName);
             Field f = t.FindField(FieldName);
             ValueField<T> fv = new ValueField<T>()
             {
@@ -1083,6 +1083,46 @@ namespace TinySql
                 group.SubConditions.First().ConditionLink = (group.SubConditions.First().ConditionLink == BoolOperators.None ? group.SubConditions.First().ConditionLink = BoolOperators.And : group.SubConditions.First().ConditionLink);
             }
             return group;
+        }
+
+        private static ConditionGroup WhereInternal(ConditionGroup group, string LeftTableName, string LeftFieldName, string RightTableName, string RightFieldName, SqlOperators Operator, BoolOperators LinkType = BoolOperators.None)
+        {
+            Table tLeft = GetTable(group, LeftTableName);
+            Field fLeft = tLeft.FindField(LeftFieldName);
+            Table tRight = GetTable(group, RightTableName);
+            Field fRight = tRight.FindField(RightFieldName);
+            FieldCondition fc = new FieldCondition()
+            {
+                Builder = group.Builder,
+                ConditionLink = group.Conditions.Count > 0 ? LinkType : BoolOperators.None,
+                ParentGroup = group,
+                Condition = Operator,
+                LeftTable = tLeft,
+                leftField = fLeft,
+                RightTable = tRight,
+                RightField = fRight
+            };
+            group.Conditions.Add(fc);
+            if (group.SubConditions.Count > 0)
+            {
+                group.SubConditions.First().ConditionLink = (group.SubConditions.First().ConditionLink == BoolOperators.None ? group.SubConditions.First().ConditionLink = BoolOperators.And : group.SubConditions.First().ConditionLink);
+            }
+            return group;
+        }
+
+        private static Table GetTable(ConditionGroup group, string TableName)
+        {
+            var table = group.Builder.Tables.FirstOrDefault(x => 
+                x.Name.Equals(TableName, StringComparison.InvariantCultureIgnoreCase) || 
+                (x.Alias != null && x.Alias.Equals(TableName, StringComparison.InvariantCultureIgnoreCase)) || 
+                x.FullName.Equals(TableName, StringComparison.InvariantCultureIgnoreCase));
+
+            if (table == null)
+            {
+                throw new InvalidOperationException(string.Format("The WHERE condition table '{0}' does not exist", TableName));
+            }
+
+            return table;
         }
 
         internal static JoinConditionGroup OnInternal(JoinConditionGroup group, Field FromField, SqlOperators Operator, Field ToField, BoolOperators LinkType = BoolOperators.None)
