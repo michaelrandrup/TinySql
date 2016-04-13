@@ -1088,9 +1088,19 @@ namespace TinySql
         private static ConditionGroup WhereInternal(ConditionGroup group, string LeftTableName, string LeftFieldName, string RightTableName, string RightFieldName, SqlOperators Operator, BoolOperators LinkType = BoolOperators.None)
         {
             Table tLeft = GetTable(group, LeftTableName);
-            Field fLeft = tLeft.FindField(LeftFieldName);
+            Field fLeft = tLeft.FindField(LeftFieldName) ?? new Field
+            {
+                Name = LeftFieldName,
+                Table = tLeft,
+                Builder = group.Builder
+            };
             Table tRight = GetTable(group, RightTableName);
-            Field fRight = tRight.FindField(RightFieldName);
+            Field fRight = tRight.FindField(RightFieldName) ?? new Field
+            {
+                Name = RightFieldName,
+                Table = tRight,
+                Builder = group.Builder
+            };
             FieldCondition fc = new FieldCondition()
             {
                 Builder = group.Builder,
