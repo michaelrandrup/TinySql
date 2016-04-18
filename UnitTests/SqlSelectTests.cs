@@ -33,6 +33,55 @@ namespace UnitTests
         }
 
         [TestMethod]
+        public void TestFieldToFieldWhereClause()
+        {
+            Guid g = StopWatch.Start();
+            SqlBuilder builder = SqlBuilder.Select()
+                .From("Account")
+                .Columns("Name")
+                .InnerJoin("Contact")
+                .On("AccountID", SqlOperators.Equal, "AccountID")
+                .ToTable()
+                .AllColumns()
+                .Where("Contact", "FirstName", "Contact", "LastName", SqlOperators.Equal)
+                .Builder();
+
+            Console.WriteLine(builder.ToSql());
+        }
+
+        [TestMethod]
+        public void TestFieldToFieldWhereClauseMultipleJoins()
+        {
+            Guid g = StopWatch.Start();
+            SqlBuilder builder = SqlBuilder.Select()
+                .From("Account")
+                .Columns("Name")
+                .LeftOuterJoin("SystemUser", "CreatedUser")
+                    .On("CreatedBy", SqlOperators.Equal, "SystemUserID")
+                .FromTable()
+                .LeftOuterJoin("SystemUser", "ModifiedUser")
+                    .On("ModifiedBy", SqlOperators.Equal, "SystemUserID")
+                .FromTable()
+                .Where("Account", "ModifiedBy", "SystemUser", "SystemuserID", SqlOperators.Equal)
+                .Builder();
+
+
+
+               
+                
+                //.AllColumns()
+                //.Where("Contact", "FirstName", "Contact", "LastName", SqlOperators.Equal)
+                //.Builder();
+
+            Console.WriteLine(builder.ToSql());
+
+
+
+
+        }
+
+
+        [TestMethod]
         public void PopulateClassFromResultTable()
         {
             Guid g = StopWatch.Start();

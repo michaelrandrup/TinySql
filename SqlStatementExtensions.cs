@@ -353,6 +353,12 @@ namespace TinySql
             return group.Join.ToTable;
         }
 
+        public static Table FromTable(this JoinConditionGroup group)
+        {
+            return group.Join.FromTable;
+        }
+
+
         public static Table Into(this Table table, string TempTable, bool OutputTable = true)
         {
             if (table.Builder.SelectIntoTable != null)
