@@ -1030,7 +1030,9 @@ namespace TinySql.Metadata
         }
         private static ServerConnection GetConnection(string ConnectionString)
         {
-            System.Data.SqlClient.SqlConnection con = new System.Data.SqlClient.SqlConnection(ConnectionString);
+            //System.Data.SqlClient.SqlConnection con = new System.Data.SqlClient.SqlConnection(ConnectionString);
+            //return new ServerConnection(con);
+            Microsoft.Data.SqlClient.SqlConnection con = new Microsoft.Data.SqlClient.SqlConnection(ConnectionString);
             return new ServerConnection(con);
         }
 

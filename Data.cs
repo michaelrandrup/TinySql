@@ -243,12 +243,12 @@ namespace TinySql
                 throw new InvalidOperationException("The ConnectionString must be set on the Execute Method or on the SqlBuilder");
             }
             DataSet ds = new DataSet();
-            using (TransactionScope trans = new TransactionScope(TransactionScopeOption.RequiresNew, new TransactionOptions()
-            {
-                IsolationLevel = System.Transactions.IsolationLevel.ReadCommitted,
-                Timeout = TimeSpan.FromSeconds(TimeoutSeconds)
-            }))
-            {
+            //using (TransactionScope trans = new TransactionScope(TransactionScopeOption.RequiresNew, new TransactionOptions()
+            //{
+            //    IsolationLevel = System.Transactions.IsolationLevel.ReadCommitted,
+            //    Timeout = TimeSpan.FromSeconds(TimeoutSeconds)
+            //}))
+            //{
                 try
                 {
                     using (SqlConnection context = new SqlConnection(ConnectionString))
@@ -263,11 +263,11 @@ namespace TinySql
                 }
                 catch (TransactionException exTrans)
                 {
-                    trans.Dispose();
+                    //trans.Dispose();
                     throw exTrans;
                 }
-                trans.Complete();
-            }
+            //    trans.Complete();
+            //}
             if (Builder.StatementType == SqlBuilder.StatementTypes.Procedure)
             {
                 FillBuilderFromProcedureOutput(Builder, ds.Tables[0]);

@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>TinySql.Metadata.Sql.CommandLine</RootNamespace>
     <AssemblyName>TSM</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <PublishUrl>publish\</PublishUrl>
@@ -98,10 +98,10 @@
     <PostBuildEvent>rmdir $(ProjectDir)content /S /Q
 rmdir $(ProjectDir)lib /S /Q
 mkdir $(ProjectDir)content\TinySql
-mkdir $(ProjectDir)lib\net45
+mkdir $(ProjectDir)lib\net48
 copy $(TargetDir)TSM.EXE $(ProjectDir)content\TinySql /Y
 copy $(TargetDir)*.dll  $(ProjectDir)content\TinySql /Y
-copy $(TargetDir)TinySql.dll  $(ProjectDir)lib\net45 /Y</PostBuildEvent>
+copy $(TargetDir)TinySql.dll  $(ProjectDir)lib\net48 /Y</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

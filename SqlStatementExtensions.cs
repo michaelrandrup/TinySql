@@ -1071,7 +1071,7 @@ namespace TinySql
                 Name = f != null ? f.Name : FieldName,
                 Builder = group.Builder,
                 FieldValue = value,
-                DataType = value.GetType()
+                DataType = typeof(T)
             };
             fv.TryPopulateField();
             FieldCondition fc = new FieldCondition()
