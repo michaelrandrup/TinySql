@@ -1,0 +1,41 @@
+﻿<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+	<metadata>
+		<id>TinySql</id>
+		<version>0.8.1</version>
+		<title>TinySql</title>
+		<authors>Michael Randrup</authors>
+		<owners>michaelrandrup</owners>
+		<license type="expression">GPL-2.0-only</license>
+		<projectUrl>https://github.com/michaelrandrup/TinySql</projectUrl>
+		<requireLicenseAcceptance>false</requireLicenseAcceptance>
+		<description>Like the .NET StringBuilder, the TinySql SqlBuilder is a small and fast object-oriented SQL statement builder</description>
+		<releaseNotes>
+			0.8.1: Introduces 2 SqlBuilder Extensions: WithConnection() and WithCulture()
+			0.8.0: Entire project converted to .NET 4.8 + Microsoft.Data.SqlClient v4.1.0
+			0.7 Beta1: bug fixes
+			The TypeBuilder in Version 0.6.7 now contains both Insert and Update from POCO objects
+			Version 0.6.6 PopulateObject() can populate object hierachies from ResultTables
+			TSM.exe in Version 0.6.5 can generate metadata and POCO classes on views as well as tables
+			Version 0.6.4 is the working version. See the GitHub project for details
+			Version 0.6.1+ is Built for .NET 4.5
+		</releaseNotes>
+		<language>en-US</language>
+		<tags>Sql C#</tags>
+		<dependencies>
+			<dependency id="Newtonsoft.Json" version="13.0.1" />
+			<dependency id="Microsoft.Data.SqlClient" version="4.1.0" />
+		</dependencies>
+		<frameworkAssemblies>
+			<frameworkAssembly assemblyName="System.Core" targetFramework="net40" />
+			<frameworkAssembly assemblyName="System.Data" targetFramework="net40" />
+			<frameworkAssembly assemblyName="System.Runtime.Caching" targetFramework="net40" />
+			<frameworkAssembly assemblyName="System.Transactions" targetFramework="net40" />
+			<frameworkAssembly assemblyName="System.Xml" targetFramework="net40" />
+			<frameworkAssembly assemblyName="System.Xml.Linq" targetFramework="net40" />
+		</frameworkAssemblies>
+	</metadata>
+	<files>
+		<file src="bin\Release\*.*" target="lib\net48\" exclude="**Newtonsoft.Json.dll;**pdb;**nupkg;**xml;**vshost**"/>
+	</files>
+</package>

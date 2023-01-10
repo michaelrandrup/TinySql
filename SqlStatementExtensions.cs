@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.SqlClient;
+using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using TinySql.Metadata;
@@ -14,6 +16,28 @@ namespace TinySql
     }
     public static class SqlStatementExtensions
     {
+        #region SqlBuilder
+        public static SqlBuilder WithConnection(this SqlBuilder sb, string connectionString)
+        {
+            sb.ConnectionString = connectionString;
+            return sb;
+        }
+
+        public static SqlBuilder WithConnection(this SqlBuilder sb, SqlConnectionStringBuilder connection)
+        {
+            sb.ConnectionString = connection.ConnectionString;
+            return sb;
+        }
+
+        public static SqlBuilder WithCulture(this SqlBuilder sb, CultureInfo cultureInfo)
+        {
+            sb.Culture = cultureInfo;
+            return sb;
+        }
+
+        #endregion
+
+
         #region Support functions
         public static Table FindTable(this SqlBuilder builder, string TableNameOrAlias, string Schema = null)
         {
@@ -65,7 +89,7 @@ namespace TinySql
                 Value = Value,
                 IsOutput = IsOutput
             };
-            if (!string.IsNullOrEmpty(TableName) && p.TryPopulateField(TableName,FieldName))
+            if (!string.IsNullOrEmpty(TableName) && p.TryPopulateField(TableName, FieldName))
             {
                 p.Name = Name;
             }
@@ -81,7 +105,7 @@ namespace TinySql
 
         public static StoredProcedure Parameter<T>(this StoredProcedure proc, string TableName, string Name, T Value, string FromField = null)
         {
-            return Parameter(proc, Name, SqlDbType.VarChar, Value, typeof(T),TableName: TableName,FieldName: FromField);
+            return Parameter(proc, Name, SqlDbType.VarChar, Value, typeof(T), TableName: TableName, FieldName: FromField);
         }
 
         public static StoredProcedure Parameter<T>(this StoredProcedure proc, string Name, SqlDbType SqlDataType, T Value, int MaxLength = -1, int Scale = -1, int Precision = -1)
@@ -252,7 +276,7 @@ namespace TinySql
 
         public static InsertIntoTable Value(this InsertIntoTable table, string FieldName, object Value)
         {
-            
+
             Field f = new ParameterField()
             {
                 Builder = table.Builder,
@@ -427,10 +451,10 @@ namespace TinySql
 
             }
             table.Builder.OrderByClause.Add(new OrderBy()
-                {
-                    Field = field,
-                    Direction = Direction
-                });
+            {
+                Field = field,
+                Direction = Direction
+            });
             return table;
 
         }
@@ -549,12 +573,12 @@ namespace TinySql
         public static Table Column<T>(this Table table, T Value, string Alias)
         {
             table.FieldList.Add(new ValueField<T>()
-                {
-                    Alias = Alias,
-                    FieldValue = Value,
-                    Table = table,
-                    Builder = table.Builder
-                });
+            {
+                Alias = Alias,
+                FieldValue = Value,
+                Table = table,
+                Builder = table.Builder
+            });
             return table;
         }
 
@@ -1128,9 +1152,9 @@ namespace TinySql
 
         private static Table GetTable(ConditionGroup group, string TableName)
         {
-            var table = group.Builder.Tables.FirstOrDefault(x => 
-                x.Name.Equals(TableName, StringComparison.InvariantCultureIgnoreCase) || 
-                (x.Alias != null && x.Alias.Equals(TableName, StringComparison.InvariantCultureIgnoreCase)) || 
+            var table = group.Builder.Tables.FirstOrDefault(x =>
+                x.Name.Equals(TableName, StringComparison.InvariantCultureIgnoreCase) ||
+                (x.Alias != null && x.Alias.Equals(TableName, StringComparison.InvariantCultureIgnoreCase)) ||
                 x.FullName.Equals(TableName, StringComparison.InvariantCultureIgnoreCase));
 
             if (table == null)
@@ -1207,7 +1231,7 @@ namespace TinySql
             }
 
             MetadataDatabase mdb = f.Table != null ? f.Table.Builder.Metadata : f.Builder.Metadata;
-            
+
             if (mdb == null)
             {
                 return false;
