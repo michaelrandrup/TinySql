@@ -11,6 +11,7 @@
 		<requireLicenseAcceptance>false</requireLicenseAcceptance>
 		<description>Like the .NET StringBuilder, the TinySql SqlBuilder is a small and fast object-oriented SQL statement builder</description>
 		<releaseNotes>
+			0.9.0: Is built for .NET 4.8
 			0.8.1: Introduces 2 SqlBuilder Extensions: WithConnection() and WithCulture()
 			0.8.0: Entire project converted to .NET 4.8 + Microsoft.Data.SqlClient v4.1.0
 			0.7 Beta1: bug fixes

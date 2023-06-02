@@ -501,6 +501,106 @@ namespace TinySql
             return (T)o;
         }
 
+        // Explicit column functions
+        public Nullable<Guid> GuidCol(string Name, bool enforceTypeSafety = false)
+        {
+            object o = Column(Name);
+            if (o == null || o == DBNull.Value)
+            {
+                return null;
+            }
+            if (!enforceTypeSafety)
+            {
+                return (Nullable<Guid>)o;
+            }
+            else
+            {
+                Guid t;
+                if (Guid.TryParse(o.ToString(), out t))
+                {
+                    return t;
+                }
+            }
+            return null;
+        }
+
+        // Explicit column functions
+        public Nullable<DateTime> DateCol(string Name, bool enforceTypeSafety = false)
+        {
+            object o = Column(Name);
+            if (o == null || o == DBNull.Value)
+            {
+                return null;
+            }
+            if (!enforceTypeSafety)
+            {
+                return (Nullable<DateTime>)o;
+            }
+            else
+            {
+                DateTime t;
+                if (DateTime.TryParse(o.ToString(), out t))
+                {
+                    return t;
+                }
+            }
+            return null;
+        }
+
+        // Explicit column functions
+        public Nullable<Decimal> DecCol(string Name, bool enforceTypeSafety = false)
+        {
+            object o = Column(Name);
+            if (o == null || o == DBNull.Value)
+            {
+                return null;
+            }
+            if (!enforceTypeSafety)
+            {
+                return (Nullable<Decimal>)o;
+            }
+            else
+            {
+                Decimal t;
+                if (Decimal.TryParse(o.ToString(), out t))
+                {
+                    return t;
+                }
+            }
+            return null;
+        }
+
+        // Explicit column functions
+        public Nullable<int> IntCol(string Name, bool enforceTypeSafety = false)
+        {
+            decimal? d = DecCol(Name, enforceTypeSafety);
+            if (d.HasValue)
+            {
+                return Convert.ToInt32(d.Value);
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        public Nullable<double> DblCol(string Name, bool enforceTypeSafety = false)
+        {
+            decimal? d = DecCol(Name, enforceTypeSafety);
+            if (d.HasValue)
+            {
+                return Convert.ToDouble(d.Value);
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+
+
+
+
         private List<string> _Columns = new List<string>();
 
         public List<string> Columns
