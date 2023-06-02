@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2013
-VisualStudioVersion = 12.0.31101.0
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.33122.133
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TinySql", "TinySql.csproj", "{32A38E7E-87AF-47EF-B2E4-3675C55E39B6}"
 EndProject
@@ -11,11 +11,14 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TinySql.Metadata.Sql", "Tin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TinySql.Metadata.Sql.CommandLine", "TinySql.Metadata.Sql.Console\TinySql.Metadata.Sql.CommandLine.csproj", "{30837967-6B53-4D24-A1B1-38160DC0450D}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E1424DC2-592D-40D8-998C-5F7272B4035C}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TinySql.MVC", "TinySql.MVC\TinySql.MVC.csproj", "{C6F86A26-10A8-41D3-ADE5-F1CE4AE07746}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TinySql.UI", "TinySql.UI\TinySql.UI.csproj", "{2ACC97AD-78C4-42F2-B309-B535EA12B336}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "nuspec", "nuspec", "{10C75833-804F-49E9-9C35-CA5C46B00BA8}"
+	ProjectSection(SolutionItems) = preProject
+		TinySql.nuspec = TinySql.nuspec
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -50,5 +53,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A69C911A-4E0A-4C13-B717-DDDFBD6C4D96}
 	EndGlobalSection
 EndGlobal
