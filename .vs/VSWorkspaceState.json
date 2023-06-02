@@ -1,14 +1,6 @@
 {
   "ExpandedNodes": [
-    "",
-    "\\bin\\Debug",
-    "\\bin\\Release",
-    "\\TinySql.Metadata.Sql.Console\\content",
-    "\\TinySql.Metadata.Sql.Console\\lib",
-    "\\TinySql.Metadata.Sql.Console\\lib\\net48",
-    "\\TinySql.Metadata.Sql.Console\\Properties",
-    "\\TinySql.SMO\\TinySql.SMO"
+    ""
   ],
-  "SelectedNode": "\\TinySql.sln",
   "PreviewInSolutionExplorer": false
 }
