@@ -12,6 +12,17 @@ namespace TinySql
 {
     public static class Data
     {
+        #region Use SQL Statements
+
+        public static SqlBuilder UseSql(this SqlBuilder builder, string sqlStatement)
+        {
+            builder.CustomSql = sqlStatement;
+            return builder;
+        }
+
+
+        #endregion
+
         #region Execute methods
 
         public static ResultTable Execute(this SqlBuilder Builder, int TimeoutSeconds = 30, bool WithMetadata = true, ResultTable.DateHandlingEnum? DateHandling = null, bool UseCache = true, string UseHierachyField = null, params object[] Format)

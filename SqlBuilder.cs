@@ -201,11 +201,6 @@ namespace TinySql
             return item != null ? (SqlBuilder)item.Value : null;
         }
 
-        public static SqlBuilder UseSql(this SqlBuilder builder, string sqlStatement)
-        {
-            builder.CustomSql = sqlStatement;
-            return builder;
-        }
 
 
         public string ToSql(params object[] Format)
