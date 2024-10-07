@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.Caching;
+using System.Runtime.CompilerServices;
 using System.Text;
 using TinySql.Metadata;
 
@@ -85,6 +86,8 @@ namespace TinySql
             get { return _ConnectionString ?? DefaultConnection; }
             set { _ConnectionString = value; }
         }
+
+        public string CustomSql { get; set; } = null;
 
         public object[] Format;
 
@@ -198,9 +201,19 @@ namespace TinySql
             return item != null ? (SqlBuilder)item.Value : null;
         }
 
+        public static SqlBuilder UseSql(this SqlBuilder builder, string sqlStatement)
+        {
+            builder.CustomSql = sqlStatement;
+            return builder;
+        }
+
 
         public string ToSql(params object[] Format)
         {
+            if (!string.IsNullOrEmpty(this.CustomSql))
+            {
+                return this.CustomSql;
+            }
             if (Format == null || Format.Length == 0)
             {
                 return ToSql();
@@ -211,6 +224,10 @@ namespace TinySql
 
         public virtual string ToSql()
         {
+            if (!string.IsNullOrEmpty(this.CustomSql))
+            {
+                return this.CustomSql;
+            }
             StringBuilder sb = new StringBuilder();
             string sql = "";
 
